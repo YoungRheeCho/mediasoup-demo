@@ -15,6 +15,7 @@ import * as os from 'node:os';
  */
 
 const ANNOUNCED_IP = process.env['MEDIASOUP_ANNOUNCED_ADDRESS'] ?? process.env['SERVER_IP'];
+const POD_IP = process.env['MEDIASOUP_ANNOUNCED_ADDRESS'] ?? process.env['POD_IP'];
 const PUBLIC_IP = process.env['MEDIASOUP_ANNOUNCED_ADDRESS'] ?? process.env['PUBLIC_IP'];
 const RTC_PORT = Number(process.env['RTC_PORT'] ?? 44444);
 
@@ -187,7 +188,7 @@ export const config = {
 			listenInfo: {
 				protocol: 'udp',
 				ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
-				announcedAddress: ANNOUNCED_IP,
+				announcedAddress: POD_IP,
 				portRange: {
 					min: Number(process.env['MEDIASOUP_MIN_PORT'] ?? 40000),
 					max: Number(process.env['MEDIASOUP_MAX_PORT'] ?? 40999),
