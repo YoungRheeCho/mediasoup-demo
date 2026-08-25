@@ -4,11 +4,11 @@ import * as path from 'path';
 
 // metrics agent 주소.
 // 실제 배포 환경에서는 반드시 환경변수로 지정.
-const METRICS_AGENT_ADDR = process.env.METRICS_AGENT_ADDR;
+const METRICS_AGENT_ADDR = process.env['METRICS_AGENT_ADDR'];
 
 // sysinfo.proto 위치.
 const SYSINFO_PROTO_PATH =
-	process.env.SYSINFO_PROTO_PATH ??
+	process.env['SYSINFO_PROTO_PATH'] ??
 	path.resolve(process.cwd(), 'sysinfo.proto');
 
 let client: any | undefined;
