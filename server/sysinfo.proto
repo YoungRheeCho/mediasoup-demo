@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package sysinfo;
+
+service SysInfoService {
+  rpc StreamSystemInfo(Empty) returns (stream SystemInfoResponse);
+
+  // 추가: mediasoup -> metrics agent
+  rpc UpdateViewerCount(ViewerCountRequest) returns (Empty);
+}
+
+message Empty {}
+
+message ViewerCountRequest {
+  uint32 viewer_count = 1;
+}
+
+message SystemInfoResponse {
+  double cpu_util_percent = 1;
+  double mem_util_percent = 2;
+  double mem_total_mb = 3;
+  double mem_used_mb = 4;
+}

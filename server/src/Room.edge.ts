@@ -33,6 +33,9 @@ import type {
 	SerializedPeer,
 } from './types';
 
+// yeon: viewer count -> metrics agent
+import { reportViewerCount } from './ViewerMetricsClient';
+
 const staticLogger = new Logger('Room');
 // yeon
 const EXTERNAL_PEER_ID = '__external__';
@@ -125,6 +128,9 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	readonly #joiningBroadcasterPeers: Map<string, BroadcasterPeer> = new Map();
 	readonly #broadcasterPeers: Map<string, BroadcasterPeer> = new Map();
 	readonly #createdAt: Date;
+	// yeon: viewer count
+	//readonly #viewerPeerIds: Set<string> = new Set();
+
 	#closed: boolean = false;
 
 	// yeon: ProducerAppData왜 이걸로 강제해야 하는지는 잘 모르겠음
@@ -168,7 +174,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	// yeon
 	// edge
 	public async onExternalProducer(producer: mediasoupTypes.Producer<ProducerAppData>): Promise<void> {
-		
+
 		this.#observedProducers.set(producer.id, producer);
 
 		producer.observer.on('close', () => {
@@ -553,6 +559,28 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 			this.#joiningPeers.delete(peer.id);
 			this.#peers.delete(peer.id);
 
+
+			// yeon: viewer count 
+			const viewerCount = this.#peers.size;
+			// viewer count 변경 전달
+
+			this.#logger.warn(
+				'[VIEWER-COUNT] closed peerId=%s viewerCount=%d',
+				peer.id,
+				viewerCount
+			);
+
+			// yeon: metrics agent로 현재 viewer count 전달.
+			void reportViewerCount(viewerCount)
+				.catch(error => {
+					this.#logger.warn(
+						'[VIEWER-COUNT] failed to report to metrics agent ' +
+						'[viewerCount:%d]: %o',
+						viewerCount,
+						error
+					);
+				});
+
 			this.mayClose();
 		});
 
@@ -560,6 +588,26 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 			this.#logger.debug('handlePeer |  new peer joined the room');
 			this.#joiningPeers.delete(peer.id);
 			this.#peers.set(peer.id, peer);
+
+			// yeon: viewer count
+			const viewerCount = this.#peers.size;
+
+			this.#logger.warn(
+				'[VIEWER-COUNT] joined peerId=%s viewerCount=%d',
+				peer.id,
+				viewerCount
+			);
+
+			// yeon: metrics agent로 현재 viewer count 전달
+			void reportViewerCount(viewerCount)
+				.catch(error => {
+					this.#logger.warn(
+						'[VIEWER-COUNT] failed to report to metrics agent ' +
+						'[viewerCount:%d]: %o',
+						viewerCount,
+						error
+					);
+				});
 
 			const otherPeers = this.getOtherPeers(peer);
 			const broadcasterPeers = this.getAllBroadcasterPeers();
@@ -628,7 +676,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 						);
 					});
 			}
-			
+
 			this.#logger.warn('[JOIN] finished external producer loop for peerId=%s', peer.id);
 
 			void peer.consumeData({ dataProducer: this.#bot.getDataProducer() });
@@ -810,6 +858,24 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 		peer.on('stop-network-throttle', ({ secret }, resolve, reject) => {
 			this.emit('stop-network-throttle', { secret }, resolve, reject);
 		});
+
+		// yeon: viewer count
+		// peer.on('viewer-state-changed', isViewer => {
+		// 	if (isViewer)
+		// 		this.#viewerPeerIds.add(peer.id);
+		// 	else
+		// 		this.#viewerPeerIds.delete(peer.id);
+
+		// 	const viewerCount = this.#viewerPeerIds.size;
+
+		// 	this.#logger.warn(
+		// 		'[VIEWER] roomId=%s viewerCount=%d',
+		// 		this.#roomId,
+		// 		viewerCount
+		// 	);
+		// });
+
+
 	}
 
 	private handleBroadcasterPeer(broadcasterPeer: BroadcasterPeer): void {

@@ -15,6 +15,8 @@ import * as os from 'node:os';
  */
 
 const ANNOUNCED_IP = process.env['MEDIASOUP_ANNOUNCED_ADDRESS'] ?? process.env['SERVER_IP'];
+const PUBLIC_IP = process.env['MEDIASOUP_ANNOUNCED_ADDRESS'] ?? process.env['PUBLIC_IP'];
+const RTC_PORT = Number(process.env['RTC_PORT'] ?? 44444);
 
 export const config = {
 	/**
@@ -22,7 +24,7 @@ export const config = {
 	 * not matching this domain will be rejected.
 	 */
 	// yeon
-	domain: ANNOUNCED_IP,
+	domain: PUBLIC_IP,//ANNOUNCED_IP,
 	/**
 	 * Signaling settings (Protoo WebSocket server and HTTP API server).
 	 */
@@ -142,7 +144,8 @@ export const config = {
 					protocol: 'udp',
 					ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
 					announcedAddress: ANNOUNCED_IP,
-					port: 44444,
+					//port: 44444,
+					port: RTC_PORT,
 					sendBufferSize: undefined,
 					recvBufferSize: undefined,
 				},
@@ -150,7 +153,8 @@ export const config = {
 					protocol: 'tcp',
 					ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
 					announcedAddress: ANNOUNCED_IP,
-					port: 44444,
+					//port: 44444,
+					port: RTC_PORT,
 					sendBufferSize: undefined,
 					recvBufferSize: undefined,
 				},
