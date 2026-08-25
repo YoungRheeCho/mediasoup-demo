@@ -41,6 +41,8 @@
 		"connect-terminal": "npx mediasoup-demo-server-connect-terminal"
 	},
 	"dependencies": {
+		"@grpc/grpc-js": "^1.14.4",
+		"@grpc/proto-loader": "^0.8.1",
 		"@sitespeed.io/throttle": "^5.0.1",
 		"awaitqueue": "^3.3.0",
 		"body-parser": "^2.2.1",
