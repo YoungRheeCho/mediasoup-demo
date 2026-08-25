@@ -226,7 +226,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	const r: any = this.#producerRouter;
 
 	// 각 edge에 대해 pipeToExRouter 호출 (pair 캐시가 있으므로 room/edge당 1쌍 생성 후 재사용)
-	await Promise.allSettled(
+	const results = await Promise.allSettled(
 		targets.map(remote =>
 			r.pipeToExRouter({
 				producerId: producer.id,
@@ -236,6 +236,22 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 			})
 		)
 	);
+
+	results.forEach((result, i) => {
+		const target = targets[i];
+		if (!target) return;   // 이론상 없을 수 없지만, TS를 만족시키기 위한 안전장치
+
+		if (result.status === 'rejected') {
+			console.error(
+				`[PIPE] failed to pipe producer ${producer.id} to ${target.url}:`,
+				result.reason
+			);
+		} else {
+			console.log(
+				`[PIPE] successfully piped producer ${producer.id} to ${target.url}`
+			);
+		}
+	});
 }
 
 	get roomId(): RoomId {
