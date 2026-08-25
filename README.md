@@ -1,2 +1,2 @@
-# mediasoup-demp
+# mediasoup-demo
 mediasoup-demo
