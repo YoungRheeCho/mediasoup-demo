@@ -211,7 +211,16 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 					const { enableSctp, numSctpStreams, enableRtx, enableSrtp } = body;
 	
 					const transport = await router.createPipeTransport({
-						listenInfo: { protocol: 'udp', ip: pipeBindIp },
+						listenInfo: { 
+							protocol: 'udp',
+							ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
+							announcedAddress: pipeBindIp,
+							portRange: {
+            					min: Number(process.env['MEDIASOUP_MIN_PORT'] ?? 40000),
+          				  		max: Number(process.env['MEDIASOUP_MAX_PORT'] ?? 40999),
+        					},
+						},
+						
 						enableSctp: Boolean(enableSctp),
 						numSctpStreams: numSctpStreams ?? { OS: 1024, MIS: 1024 },
 						enableRtx: Boolean(enableRtx),
