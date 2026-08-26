@@ -229,9 +229,9 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 				}
 	
 				if (req.url === '/pipe/connectPipeTransport') {
-					const { transportId, ip, port, srtpParameters } = body;
-					const transport = this.#remotePipeTransports.get(transportId);
-					if (!transport) return this.sendJson(res, 404, { error: `PipeTransport not found: ${transportId}` });
+					const { TransportId, ip, port, srtpParameters } = body;
+					const transport = this.#remotePipeTransports.get(TransportId);
+					if (!transport) return this.sendJson(res, 404, { error: `connection fail: PipeTransport not found: ${TransportId}` });
 	
 					await transport.connect({ ip, port, srtpParameters });
 					logger.debug('connect and send json');
@@ -239,9 +239,9 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 				}
 	
 				if (req.url === '/pipe/produce') {
-					const { transportId, id, kind, rtpParameters, paused, appData } = body;
-					const transport = this.#remotePipeTransports.get(transportId);
-					if (!transport) return this.sendJson(res, 404, { error: `PipeTransport not found: ${transportId}` });
+					const { TransportId, id, kind, rtpParameters, paused, appData } = body;
+					const transport = this.#remotePipeTransports.get(TransportId);
+					if (!transport) return this.sendJson(res, 404, { error: `pipe fail: PipeTransport not found: ${TransportId}` });
 
 					const producer = await transport.produce({ id, kind, rtpParameters, paused, 
 						appData: {
