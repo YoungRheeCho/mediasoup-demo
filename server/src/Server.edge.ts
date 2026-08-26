@@ -334,7 +334,7 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 				// share the same listening port. Hence we increase the port for each
 				// Worker.
 				const clonnedWebRtcServerOptions = clone(webRtcServerOptions);
-				const portIncrement = workersAndWebRtcServers.size - 1;
+				const portIncrement = idx; //workersAndWebRtcServers.size - 1;
 
 				for (const listenInfo of clonnedWebRtcServerOptions.listenInfos) {
 					listenInfo.port! += portIncrement;
