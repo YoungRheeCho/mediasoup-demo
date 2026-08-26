@@ -232,7 +232,16 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 				producerId: producer.id,
 				remote,          // { url, roomId }
 				keepId: true,
-				listenInfo: { protocol: 'udp', ip: '10.20.13.175' }, // hard coding, origin 주소 기입
+				listenInfo: {
+					protocol: 'udp',
+					ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
+					announcedAddress: process.env['PUBLIC_IP'] ?? '10.20.13.175',
+					portRange: {
+						min: Number(process.env['MEDIASOUP_MIN_PORT'] ?? 40000),
+						max: Number(process.env['MEDIASOUP_MAX_PORT'] ?? 40999),
+					},
+				},
+				//listenInfo: { protocol: 'udp', ip: '10.20.13.175' }, // hard coding, origin 주소 기입
 			})
 		)
 	);
