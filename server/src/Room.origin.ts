@@ -235,7 +235,8 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 				listenInfo: {
 					protocol: 'udp',
 					ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
-					announcedAddress: process.env['PUBLIC_IP'] ?? '10.20.13.175',
+					announcedAddress: '10.244.2.0',  // 임시 테스트: flannel 대표 주소로 하드코딩
+					//announcedAddress: process.env['PUBLIC_IP'] ?? '10.20.13.175',
 					portRange: {
 						min: Number(process.env['MEDIASOUP_MIN_PORT'] ?? 40000),
 						max: Number(process.env['MEDIASOUP_MAX_PORT'] ?? 40999),
