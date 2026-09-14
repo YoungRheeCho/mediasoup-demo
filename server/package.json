@@ -1,0 +1,72 @@
+{
+	"name": "mediasoup-demo-server",
+	"version": "3.1.0",
+	"description": "mediasoup-demo server",
+	"author": "Iñaki Baz Castillo <ibc@aliax.net>",
+	"license": "ISC",
+	"homepage": "https://mediasoup.org",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/versatica/mediasoup-demo.git"
+	},
+	"funding": {
+		"type": "opencollective",
+		"url": "https://opencollective.com/mediasoup"
+	},
+	"main": "lib/index.js",
+	"types": "lib/index.d.ts",
+	"bin": {
+		"mediasoup-demo-server": "bin/mediasoup-demo-server",
+		"mediasoup-demo-server-connect-terminal": "bin/mediasoup-demo-server-connect-terminal"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"keywords": [
+		"mediasoup",
+		"webrtc",
+		"sfu",
+		"nodejs"
+	],
+	"scripts": {
+		"prepare": "node npm-scripts.mjs prepare",
+		"typescript:build": "node npm-scripts.mjs typescript:build",
+		"typescript:watch": "node npm-scripts.mjs typescript:watch",
+		"lint": "node npm-scripts.mjs lint",
+		"format": "node npm-scripts.mjs format",
+		"release:check": "node npm-scripts.mjs release:check",
+		"release": "node npm-scripts.mjs release",
+		"start": "npx mediasoup-demo-server",
+		"watch": "node npm-scripts.mjs watch",
+		"connect-terminal": "npx mediasoup-demo-server-connect-terminal"
+	},
+	"dependencies": {
+		"@sitespeed.io/throttle": "^5.0.1",
+		"awaitqueue": "^3.3.0",
+		"body-parser": "^2.2.1",
+		"debug": "^4.4.3",
+		"express": "^5.2.1",
+		"mediasoup": "file:../../mediasoup",
+		"picocolors": "^1.1.1",
+		"pidusage": "^4.0.1",
+		"protoo-server": "^4.0.7",
+		"supports-color": "^10.2.2"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.39.2",
+		"@types/debug": "^4.1.12",
+		"@types/express": "^5.0.6",
+		"@types/node": "^24.10.1",
+		"@types/pidusage": "^2.0.5",
+		"@types/protoo-server": "^4.0.6",
+		"eslint": "^9.39.2",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-prettier": "^5.5.4",
+		"globals": "^16.5.0",
+		"nodemon": "^3.1.11",
+		"prettier": "^3.7.4",
+		"tsx": "^4.21.0",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.50.1"
+	}
+}

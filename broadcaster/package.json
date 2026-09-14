@@ -1,0 +1,61 @@
+{
+	"name": "mediasoup-demo-broadcaster",
+	"version": "0.0.1-alpha.0",
+	"description": "mediasoup-demo broadcaster",
+	"author": "Iñaki Baz Castillo <ibc@aliax.net>",
+	"license": "All Rights Reserved",
+	"homepage": "https://mediasoup.org",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/versatica/mediasoup-demo.git"
+	},
+	"funding": {
+		"type": "opencollective",
+		"url": "https://opencollective.com/mediasoup"
+	},
+	"main": "lib/index.js",
+	"types": "lib/index.d.ts",
+	"bin": {
+		"mediasoup-demo-broadcaster": "bin/mediasoup-demo-broadcaster"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"keywords": [
+		"mediasoup",
+		"webrtc",
+		"sfu",
+		"nodejs"
+	],
+	"scripts": {
+		"prepare": "node ./npm-scripts.mjs prepare",
+		"typescript:build": "node ./npm-scripts.mjs typescript:build",
+		"typescript:watch": "node ./npm-scripts.mjs typescript:watch",
+		"lint": "node ./npm-scripts.mjs lint",
+		"format": "node ./npm-scripts.mjs format",
+		"release:check": "node ./npm-scripts.mjs release:check",
+		"release": "node ./npm-scripts.mjs release",
+		"start": "npx mediasoup-demo-broadcaster",
+		"dev": "node ./npm-scripts.mjs dev"
+	},
+	"dependencies": {
+		"debug": "^4.4.3",
+		"mediasoup-client": "^3.18.1",
+		"supports-color": "^10.2.2",
+		"undici": "^7.16.0"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.39.1",
+		"@types/debug": "^4.1.12",
+		"@types/node": "^24.10.1",
+		"eslint": "^9.39.1",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-prettier": "^5.5.4",
+		"globals": "^16.5.0",
+		"mediasoup-client": "^3.18.1",
+		"prettier": "^3.6.2",
+		"tsx": "^4.20.6",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.47.0"
+	}
+}
