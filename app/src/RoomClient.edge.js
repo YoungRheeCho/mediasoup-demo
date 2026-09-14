@@ -9,6 +9,8 @@ import * as stateActions from './redux/stateActions';
 import * as e2e from './e2e';
 
 const role = new URLSearchParams(window.location.search).get('role') || 'viewer'; // yun
+// 추가: stats 수집 여부 (뷰봇이 URL에 ?collectStats=1 을 붙였을 때만 활성화)
+const collectStats = new URLSearchParams(window.location.search).get('collectStats') === '1';
 
 const WEBCAM_VIDEO_CONSTRAINS = {
 	qvga: { width: { ideal: 320 }, height: { ideal: 240 } },
@@ -266,6 +268,12 @@ export default class RoomClient {
 		// Display name.
 		// @type {String}
 		this._displayName = displayName;
+
+		//-----------------------------------------------------
+		//youngrhee
+		// Peer ID (뷰어 식별용, stats 수집에도 사용)
+		this._peerId = peerId;
+		//-----------------------------------------------------
 
 		// Device info.
 		// @type {Object}
@@ -527,6 +535,14 @@ export default class RoomClient {
 	}
 
 	async join() {
+		//----------------------------------------------------------------------------------------
+		//youngrhee
+		// stats 수집이 켜져 있으면 collector 서버에 연결
+		if (collectStats && !window.__statsSocket) {
+			window.__statsSocket = new WebSocket('ws://localhost:9000');
+		}
+		//----------------------------------------------------------------------------------------
+
 		store.dispatch(
 			stateActions.setMediasoupClientVersion(mediasoupClient.version)
 		);
@@ -690,6 +706,11 @@ export default class RoomClient {
 								}
 								this._consumers.delete(consumer.id);
 							});
+
+							//--------------------------------------------------------------------------------------
+							//youngrhee
+							this._startConsumerStatsCollection(consumer, kind);
+							//--------------------------------------------------------------------------------------
 
 							const { spatialLayers, temporalLayers } =
 								mediasoupClient.parseScalabilityMode(
@@ -3106,4 +3127,51 @@ export default class RoomClient {
 
 		return this._externalVideoStream;
 	}
+
+	//----------------------------------------------------------------------------------------
+	//youngrhee
+	_startConsumerStatsCollection(consumer, kind) {
+		if (!collectStats) return; // stats 수집 안 하는 경우 아무 것도 안 함
+		const intervalId = setInterval(async () => {
+			if (consumer.closed) {
+				clearInterval(intervalId);
+				return;
+			}
+
+			try {
+				const statsReport = await consumer.getStats();
+				const ts = Date.now();
+				const rows = [];
+
+				statsReport.forEach(stat => {
+					rows.push({
+						timestamp: ts,
+						peerId: this._peerId,
+						consumerId: consumer.id,
+						kind,
+						type: stat.type,
+						packetsReceived: stat.packetsReceived,
+						packetsLost: stat.packetsLost,
+						bytesReceived: stat.bytesReceived,
+						jitter: stat.jitter,
+						framesDecoded: stat.framesDecoded,
+						frameWidth: stat.frameWidth,
+						frameHeight: stat.frameHeight,
+					});
+				});
+
+				if (window.__statsSocket && window.__statsSocket.readyState === WebSocket.OPEN) {
+					window.__statsSocket.send(JSON.stringify({ peerId: this._peerId, rows }));
+				}
+			} catch (error) {
+				logger.warn('_startConsumerStatsCollection() | getStats() failed:%o', error);
+				clearInterval(intervalId);
+			}
+		}, 2000); // 2초 주기, 필요에 맞게 조절
+
+		// consumer가 닫히면 인터벌도 정리
+		consumer.on('transportclose', () => clearInterval(intervalId));
+		consumer.observer.once('close', () => clearInterval(intervalId));
+	}
+	//----------------------------------------------------------------------------------------
 }
