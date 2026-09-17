@@ -182,8 +182,8 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 		const remotePipeApi = (this.#config as any).remotePipeApi ?? {};
 		const port: number = remotePipeApi.port ?? 4445;
 		const bindIp: string = remotePipeApi.bindIp ?? '0.0.0.0';
-		const pipeBindIp: string = String(process.env['SERVER_IP']); // 
-	
+		//const pipeBindIp: string = String(process.env['SERVER_IP']); // 
+		const pipeBindIp: string = String(process.env['POD_IP']); // 
 		this.#remotePipeHttpServer = http.createServer(async (req, res) => {
 			try {
 				if (!req.url) return this.sendJson(res, 404, { error: 'No url' });
@@ -210,7 +210,15 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 					const { enableSctp, numSctpStreams, enableRtx, enableSrtp } = body;
 	
 					const transport = await router.createPipeTransport({
-						listenInfo: { protocol: 'udp', ip: pipeBindIp },
+						listenInfo: { 
+							protocol: 'udp',
+							ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
+							announcedAddress: pipeBindIp,
+							portRange:{
+								min: Number(process.env['MEDIASOUP_MIN_PORT'] ?? 40000),
+								max: Number(process.env['MEDIASOUP_MAX_PORT'] ?? 40999),
+							}
+						 },
 						enableSctp: Boolean(enableSctp),
 						numSctpStreams: numSctpStreams ?? { OS: 1024, MIS: 1024 },
 						enableRtx: Boolean(enableRtx),
@@ -228,9 +236,9 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 				}
 	
 				if (req.url === '/pipe/connectPipeTransport') {
-					const { transportId, ip, port, srtpParameters } = body;
-					const transport = this.#remotePipeTransports.get(transportId);
-					if (!transport) return this.sendJson(res, 404, { error: `PipeTransport not found: ${transportId}` });
+					const { TransportId, ip, port, srtpParameters } = body;
+					const transport = this.#remotePipeTransports.get(TransportId);
+					if (!transport) return this.sendJson(res, 404, { error: `PipeTransport not found: ${TransportId}` });
 	
 					await transport.connect({ ip, port, srtpParameters });
 					logger.debug('connect and send json');
@@ -238,9 +246,9 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 				}
 	
 				if (req.url === '/pipe/produce') {
-					const { transportId, id, kind, rtpParameters, paused, appData } = body;
-					const transport = this.#remotePipeTransports.get(transportId);
-					if (!transport) return this.sendJson(res, 404, { error: `PipeTransport not found: ${transportId}` });
+					const { TransportId, id, kind, rtpParameters, paused, appData } = body;
+					const transport = this.#remotePipeTransports.get(TransportId);
+					if (!transport) return this.sendJson(res, 404, { error: `PipeTransport not found: ${TransportId}` });
 
 					const producer = await transport.produce({ id, kind, rtpParameters, paused, 
 						appData: {
@@ -333,8 +341,8 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 				// share the same listening port. Hence we increase the port for each
 				// Worker.
 				const clonnedWebRtcServerOptions = clone(webRtcServerOptions);
-				const portIncrement = workersAndWebRtcServers.size - 1;
-
+				//const portIncrement = workersAndWebRtcServers.size - 1;
+				const portIncrement = idx;
 				for (const listenInfo of clonnedWebRtcServerOptions.listenInfos) {
 					listenInfo.port! += portIncrement;
 				}

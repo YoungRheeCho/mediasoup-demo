@@ -370,6 +370,20 @@ export class Peer extends EnhancedEventEmitter<PeerEvents> {
 						// associate it.
 						await consumer.resume();
 
+						// yeon: late-join viewer keyframe request
+                        if (consumer.kind === 'video') {
+                            try {
+                                await consumer.requestKeyFrame();
+
+                            } catch (error) {
+                                this.#logger.warn(
+                                    '[KEYFRAME-TEST] requestKeyFrame() failed consumerId=%s error=%o',
+                                    consumer.id,
+                                    error
+                                );
+                            }
+                        }
+
 						// yeon: 실제 SFU -> Viewer 비디오 비트레이트 측정 시작.
 						// if (i === 0) {
 						// 	this.startConsumerBitrateMonitor(consumer, i);

@@ -33,6 +33,9 @@ import type {
 	SerializedPeer,
 } from './types';
 
+// yeon: viewer count -> metrics agent
+import { reportViewerCount } from './ViewerMetricsClient';
+
 const staticLogger = new Logger('Room');
 // yeon
 const EXTERNAL_PEER_ID = '__external__';
@@ -144,8 +147,8 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 		'*': [
 			{ url: 'http://10.20.13.157:4445' }, //hardcoding
 			{ url: 'http://10.20.13.190:4445' }, //hardcoding
-			{ url: 'http://10.20.13.186:4445' }, //hardcoding
-			{ url: 'http://10.1.2.3:4445' }, //hardcoding
+			//{ url: 'http://10.20.13.186:4445' }, //hardcoding
+			//{ url: 'http://10.1.2.3:4445' }, //hardcoding
 		],
 
 		// 특정 roomId에만 다르게 적용하고 싶으면:
@@ -555,6 +558,25 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 			this.#joiningPeers.delete(peer.id);
 			this.#peers.delete(peer.id);
 
+			// yeon: viewer count
+			const viewerCount = this.#peers.size;
+			// viewer count 변경 전달
+			this.#logger.warn(
+                '[VIEWER-COUNT] closed peerId=%s viewerCount=%d',
+                peer.id,
+                viewerCount
+            );
+
+			// yeon: metrics agent로 현재 viewer count 전달.
+			void reportViewerCount(viewerCount)
+				.catch(error => {
+					this.#logger.warn(
+						'[VIEWER-COUNT] failed to report to metrics agent ' +
+						'[viewerCount:%d]: %o',
+						viewerCount,
+						error
+					);
+				});
 			this.mayClose();
 		});
 
@@ -563,6 +585,25 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 			this.#joiningPeers.delete(peer.id);
 			this.#peers.set(peer.id, peer);
 
+			// yeon: viewer count
+			const viewerCount = this.#peers.size;
+			
+			this.#logger.warn(
+                '[VIEWER-COUNT] closed peerId=%s viewerCount=%d',
+                peer.id,
+                viewerCount
+            );
+
+			// yeon: metrics agent로 현재 viewer count 전달.
+			void reportViewerCount(viewerCount)
+				.catch(error => {
+					this.#logger.warn(
+						'[VIEWER-COUNT] failed to report to metrics agent ' +
+						'[viewerCount:%d]: %o',
+						viewerCount,
+						error
+					);
+				});
 			const otherPeers = this.getOtherPeers(peer);
 			const broadcasterPeers = this.getAllBroadcasterPeers();
 
