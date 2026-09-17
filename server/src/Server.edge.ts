@@ -658,6 +658,7 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
                     path: `/rooms/${roomId}/resync`,
                     method: 'POST',
                     ca: caCert,
+					checkServerIdentity: () => undefined,
                     headers: {
                         'content-type': 'application/json',
                         'content-length': Buffer.byteLength(bodyStr),
