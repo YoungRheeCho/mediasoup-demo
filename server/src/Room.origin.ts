@@ -112,6 +112,9 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	readonly #joiningBroadcasterPeers: Map<string, BroadcasterPeer> = new Map();
 	readonly #broadcasterPeers: Map<string, BroadcasterPeer> = new Map();
 	readonly #createdAt: Date;
+	// origin: edgeUrl별로 실제 맺어진 localPipeTransport를 기억해둠
+	// (그 edge의 room이 닫혔다는 알림이 오면, 여기서 찾아서 close() 하기 위함)
+	readonly #edgePipeTransports: Map<string, mediasoupTypes.PipeTransport> = new Map();
 	#closed: boolean = false;
 
 	// yeon
@@ -257,6 +260,14 @@ private async pipeProducerToEdges(producer: mediasoupTypes.Producer<ProducerAppD
 				result.reason
 			);
 		} else {
+			//------------------------------------------------------------------------------
+			//youngrhee: edge로 가는 localPupeTransport를 기억해둠
+            const localPipeTransport = (result.value as any)?.localPipeTransport;
+			
+            if (localPipeTransport) {
+				this.#edgePipeTransports.set(target.url, localPipeTransport);
+            }
+			//------------------------------------------------------------------------------
 			console.log(
 				`[PIPE] successfully piped producer ${producer.id} to ${target.url}`
 			);
@@ -274,7 +285,7 @@ private async pipeProducerToSingleEdge(
     const r: any = this.#producerRouter;
 
     try {
-        await r.pipeToExRouter({
+        const result = await r.pipeToExRouter({
             producerId: producer.id,
             remote: { url: edgeUrl, roomId: this.#roomId },
             keepId: true,
@@ -288,6 +299,13 @@ private async pipeProducerToSingleEdge(
                 },
             },
         });
+
+		//------------------------------------------------------------------------------
+		//youngrhee: edge로 가는 localPupeTransport를 기억해둠
+		if (result?.localPipeTransport) {
+            this.#edgePipeTransports.set(edgeUrl, result.localPipeTransport);
+        }
+		//------------------------------------------------------------------------------
 
         this.#logger.warn(
             '[RESYNC] successfully re-piped producer %s to %s',
@@ -322,6 +340,31 @@ public async resyncProducersToEdge(edgeUrl: string): Promise<{ producerCount: nu
 
     return { producerCount: producers.length };
 }
+
+//------------------------------------------------------------------------------
+//youngrhee: edge로 가는 localPupeTransport를 기억해둠
+public closePipeToEdge(edgeUrl: string): { closed: boolean } {
+    const transport = this.#edgePipeTransports.get(edgeUrl);
+
+    if (!transport) {
+        this.#logger.warn(
+            '[EDGE-CLOSED] no pipe transport found for edgeUrl=%s (nothing to close)',
+            edgeUrl
+        );
+
+        return { closed: false };
+    }
+
+    this.#logger.warn('[EDGE-CLOSED] closing pipe transport for edgeUrl=%s', edgeUrl);
+
+    transport.close();
+    this.#edgePipeTransports.delete(edgeUrl);
+
+    return { closed: true };
+}
+//------------------------------------------------------------------------------
+
+
 //----------------------------------------------------------------------------------------------------
 get roomId(): RoomId {
 	return this.#roomId;

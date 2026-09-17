@@ -525,6 +525,27 @@ export class ApiServer extends EnhancedEventEmitter<ApiServerEvents> {
 				}
 			}
 		);
+
+		this.#expressApp.post(
+			'/rooms/:roomId/edge-closed',
+			(req: ApiServerExpressRequest, res) => {
+				const { roomId } = req.params;
+				const { edgeUrl } = req.body;
+
+				this.emit(
+					'get-room',
+					{ roomId: roomId! },
+					room => {
+						const result = room.closePipeToEdge(edgeUrl);
+						res.status(200).json(result);
+					},
+					() => {
+						// origin has no such room — perfectly normal, not an error
+						res.status(200).json({ closed: false, reason: 'room-not-found' });
+					}
+				);
+			}
+		);
 		//----------------------------------------------------------------------------------
 
 		/**
