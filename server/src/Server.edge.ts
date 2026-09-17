@@ -704,6 +704,72 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 			);
 		}
 	}
+
+	// edge: 이 room이 닫혔다는 걸 origin에게 알려서, 그 파이프를 닫아달라고 요청
+	private async notifyOriginRoomClosed(roomId: string): Promise<void> {
+		const originIp = process.env['PUBLIC_IP'];
+		if (!originIp) return;
+
+		const originHttpPort = Number(process.env['HTTP_LISTEN_PORT'] ?? '4443');
+
+		const remotePipeApi = (this.#config as any).remotePipeApi ?? {};
+		const myPort: number = remotePipeApi.port ?? 4445;
+		const myIp: string = process.env['POD_IP'] ?? '0.0.0.0';
+		const myUrl = `http://${myIp}:${myPort}`;
+
+		const originBaseUrlForHeader = `https://${originIp}:${originHttpPort}`;
+		const bodyStr = JSON.stringify({ edgeUrl: myUrl });
+
+		try {
+			const caCert = fs.readFileSync('./certs/cert.pem');
+
+			const result = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+				const req = https.request(
+					{
+						hostname: originIp,
+						port: originHttpPort,
+						path: `/rooms/${roomId}/edge-closed`,
+						method: 'POST',
+						ca: caCert,
+						checkServerIdentity: () => undefined,
+						headers: {
+							'content-type': 'application/json',
+							'content-length': Buffer.byteLength(bodyStr),
+							origin: originBaseUrlForHeader,
+						},
+					},
+					res => {
+						let data = '';
+						res.on('data', chunk => { data += chunk; });
+						res.on('end', () => resolve({ status: res.statusCode ?? 0, body: data }));
+					}
+				);
+
+				req.on('error', reject);
+				req.write(bodyStr);
+				req.end();
+			});
+
+			if (result.status < 200 || result.status >= 300) {
+				logger.warn(
+					'notifyOriginRoomClosed() | origin responded with non-OK status [roomId:%o, status:%o, body:%o]',
+					roomId, result.status, result.body
+				);
+				return;
+			}
+
+			const parsed = JSON.parse(result.body) as { closed: boolean; reason?: string };
+
+			logger.info(
+				'notifyOriginRoomClosed() | succeeded [roomId:%o, closed:%o, reason:%o]',
+				roomId,
+				parsed.closed,
+				parsed.reason
+			);
+		} catch (error) {
+			logger.warn('notifyOriginRoomClosed() | failed [roomId:%o]: %o', roomId, error);
+		}
+	}
 	//----------------------------------------------------------------------------
 	private async applyNetworkThrottle({
 		secret,
@@ -906,6 +972,16 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 			}
 
 			this.#networkThrottleEnabledByRoomId = undefined;
+			//--------------------------------------------------------------------------------
+			//youngrhee: 이 방이 닫혔으니, origin에게도 이 edge로 가는 파이프를 닫아달라고 알림
+			void this.notifyOriginRoomClosed(room.id).catch(error => {
+				logger.warn(
+					'handleRoom() | notifyOriginRoomClosed() failed [roomId:%o]: %o',
+					room.id,
+					error
+				);
+			});
+			//--------------------------------------------------------------------------------
 		});
 
 		room.on(
