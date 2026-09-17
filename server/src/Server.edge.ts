@@ -626,9 +626,9 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 	//youngrhee
 	// edge: origin에게 "나 새로 열렸어, 지금 활성 producer들 다시 파이프해줘"라고 요청
 	private async requestResyncFromOrigin(roomId: string): Promise<void> {
-		const originApiUrl = process.env['ORIGIN_API_URL'];
+		const originIp = process.env['PUBLIC_IP'];
 
-		if (!originApiUrl) {
+		if (!originIp) {
 			logger.warn(
 				'requestResyncFromOrigin() | ORIGIN_API_URL not configured, skipping resync [roomId:%o]',
 				roomId
@@ -637,43 +637,63 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 			return;
 		}
 
+		const originHttpPort = process.env['ORIGIN_HTTP_LISTEN_PORT'] ?? '4443';
+    	const originBaseUrl = `https://${originIp}:${originHttpPort}`;
+
 		// 이 edge 서버가 origin에게 "나한테 파이프할 땐 이 주소로 해줘"라고 알려줄 자기 자신의 주소
 		const remotePipeApi = (this.#config as any).remotePipeApi ?? {};
-		const myPort: number = remotePipeApi.port ?? 4445;
-		const myIp: string = process.env['POD_IP'] ?? '0.0.0.0';
-		const myUrl = `http://${myIp}:${myPort}`;
-
+    	const myPort: number = remotePipeApi.port ?? 4445;
+    	const myIp: string = process.env['POD_IP'] ?? '0.0.0.0';
+    	const myUrl = `http://${myIp}:${myPort}`;
+		const bodyStr = JSON.stringify({ edgeUrl: myUrl });
+		
 		try {
-			const response = await fetch(`${originApiUrl}/rooms/${roomId}/resync`, {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-					// ApiServer의 Origin 헤더 검증을 통과하려면
-					// origin 서버 설정의 httpOriginHeader와 정확히 같은 값이어야 함
-					origin: process.env['ORIGIN_HTTP_ORIGIN_HEADER'] ?? '',
-				},
-				body: JSON.stringify({ edgeUrl: myUrl }),
+			const caCert = fs.readFileSync('./certs/cert.pem');
+
+			const result = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+            const req = https.request(
+                {
+                    hostname: originIp,
+                    port: originHttpPort,
+                    path: `/rooms/${roomId}/resync`,
+                    method: 'POST',
+                    ca: caCert,
+                    headers: {
+                        'content-type': 'application/json',
+                        'content-length': Buffer.byteLength(bodyStr),
+                        origin: originBaseUrl,
+                    },
+                },
+                res => {
+                    let data = '';
+                    res.on('data', chunk => { data += chunk; });
+                    res.on('end', () => {
+                        resolve({ status: res.statusCode ?? 0, body: data });
+                    });
+                }
+            );
+
+            	req.on('error', reject);
+            	req.write(bodyStr);
+            	req.end();
 			});
 
-			if (!response.ok) {
-				const text = await response.text().catch(() => '');
-
+			if (result.status < 200 || result.status >= 300) {
 				logger.warn(
 					'requestResyncFromOrigin() | origin responded with non-OK status [roomId:%o, status:%o, body:%o]',
 					roomId,
-					response.status,
-					text
+					result.status,
+					result.body
 				);
-
 				return;
 			}
 
-			const result = await response.json() as { producerCount: number };
+       		 const parsed = JSON.parse(result.body) as { producerCount: number };
 
 			logger.info(
 				'requestResyncFromOrigin() | succeeded [roomId:%o, producerCount:%o]',
 				roomId,
-				result?.producerCount
+				parsed.producerCount
 			);
 		} catch (error) {
 			logger.warn(
