@@ -264,6 +264,13 @@ private async pipeProducerToEdges(producer: mediasoupTypes.Producer<ProducerAppD
 			//youngrhee: edge로 가는 localPupeTransport를 기억해둠
             const localPipeTransport = (result.value as any)?.localPipeTransport;
 			
+			//실제로 저장되는 key를 명확히 확인하기 위한 로그
+            this.#logger.warn(
+                '[PIPE-KEY] storing edgePipeTransports entry [key=%s, hasTransport=%o]',
+                target.url,
+                Boolean(localPipeTransport)
+            );
+
             if (localPipeTransport) {
 				this.#edgePipeTransports.set(target.url, localPipeTransport);
             }
