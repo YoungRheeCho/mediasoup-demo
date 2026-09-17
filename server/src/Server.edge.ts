@@ -713,8 +713,8 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 		const originHttpPort = Number(process.env['HTTP_LISTEN_PORT'] ?? '4443');
 
 		const remotePipeApi = (this.#config as any).remotePipeApi ?? {};
-		const myPort: number = remotePipeApi.port ?? 4445;
-		const myIp: string = process.env['POD_IP'] ?? '0.0.0.0';
+		const myPort: number = Number(process.env['PIPE_PORT'] ?? 4445);//remotePipeApi.port ?? 4445;
+		const myIp: string = process.env['SERVER_IP'] ?? '0.0.0.0';
 		const myUrl = `http://${myIp}:${myPort}`;
 
 		const originBaseUrlForHeader = `https://${originIp}:${originHttpPort}`;
