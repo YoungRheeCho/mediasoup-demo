@@ -501,6 +501,32 @@ export class ApiServer extends EnhancedEventEmitter<ApiServerEvents> {
 			}
 		);
 
+		//----------------------------------------------------------------------------------
+		//youngrhee
+		/**
+		 * POST API for an edge server to request re-syncing (re-piping) all
+		 * currently active producers of this Room to itself.
+		 * Called by an edge server right after it (re)creates its own local Room
+		 * instance for this roomId, to recover from a state where the edge's
+		 * previously piped producers were lost (e.g. the edge's Room was closed
+		 * and recreated after all viewers left).
+		 */
+		this.#expressApp.post(
+			'/rooms/:roomId/resync',
+			async (req: ApiServerExpressRequest, res, next) => {
+				const { edgeUrl } = req.body;
+
+				try {
+					const result = await req.room!.resyncProducersToEdge(edgeUrl);
+
+					res.status(200).json(result);
+				} catch (error) {
+					next(error);
+				}
+			}
+		);
+		//----------------------------------------------------------------------------------
+
 		/**
 		 * Error handler and middleware to log error responses.
 		 */

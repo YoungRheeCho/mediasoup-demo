@@ -146,7 +146,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	// 'live1': [{ url: 'http://10.0.0.12:4443' }],
 };
 
-	static async create({
+static async create({
 	roomId,
 	consumerReplicas,
 	usePipeTransports,
@@ -202,7 +202,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 
 	// yeon
 	// origin
-	private getRemotePipeTargets(): Array < { url: string; roomId: string } > {
+private getRemotePipeTargets(): Array < { url: string; roomId: string } > {
 	if(!this.#remotePipeEnabled) return [];
 
 	const list =
@@ -218,7 +218,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 
 	// yeon
 	// origin
-	private async pipeProducerToEdges(producer: mediasoupTypes.Producer<ProducerAppData>): Promise < void> {
+private async pipeProducerToEdges(producer: mediasoupTypes.Producer<ProducerAppData>): Promise < void> {
 	const targets = this.getRemotePipeTargets();
 	if(targets.length === 0) return;
 
@@ -264,11 +264,70 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	});
 }
 
-	get roomId(): RoomId {
+//----------------------------------------------------------------------------------------------------
+//youngrhee
+// origin: 특정 producer를 특정 edge 하나에만 파이프 (기존 pipeProducerToEdges에서 로직 재사용)
+private async pipeProducerToSingleEdge(
+    producer: mediasoupTypes.Producer<ProducerAppData>,
+    edgeUrl: string
+): Promise<void> {
+    const r: any = this.#producerRouter;
+
+    try {
+        await r.pipeToExRouter({
+            producerId: producer.id,
+            remote: { url: edgeUrl, roomId: this.#roomId },
+            keepId: true,
+            listenInfo: {
+                protocol: 'udp',
+                ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
+                announcedAddress: '10.244.2.0',
+                portRange: {
+                    min: Number(process.env['MEDIASOUP_MIN_PORT'] ?? 40000),
+                    max: Number(process.env['MEDIASOUP_MAX_PORT'] ?? 40999),
+                },
+            },
+        });
+
+        this.#logger.warn(
+            '[RESYNC] successfully re-piped producer %s to %s',
+            producer.id,
+            edgeUrl
+        );
+    } catch (error) {
+        this.#logger.error(
+            '[RESYNC] failed to re-pipe producer %s to %s: %o',
+            producer.id,
+            edgeUrl,
+            error
+        );
+    }
+}
+
+
+// edge에서 room을 다시 열었을 때 producer를 요청할 떄 호출되는 함수
+public async resyncProducersToEdge(edgeUrl: string): Promise<{ producerCount: number }> {
+    const producers = Array.from(this.#observedProducers.values());
+
+    this.#logger.warn(
+        '[RESYNC] resyncProducersToEdge() | roomId=%s edgeUrl=%s producerCount=%d',
+        this.#roomId,
+        edgeUrl,
+        producers.length
+    );
+
+    await Promise.allSettled(
+        producers.map(producer => this.pipeProducerToSingleEdge(producer, edgeUrl))
+    );
+
+    return { producerCount: producers.length };
+}
+//----------------------------------------------------------------------------------------------------
+get roomId(): RoomId {
 	return this.#roomId;
 }
 	  
-	get usePipeTransports(): boolean {
+get usePipeTransports(): boolean {
 	return this.#usePipeTransports;
 }
 
