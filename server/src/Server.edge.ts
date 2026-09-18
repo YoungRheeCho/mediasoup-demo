@@ -625,6 +625,12 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 	//----------------------------------------------------------------------------
 	//youngrhee
 	// edge: origin에게 "나 새로 열렸어, 지금 활성 producer들 다시 파이프해줘"라고 요청
+	private getMyRemotePipeUrl(): string {
+		const myPort = Number(process.env['PIPE_PORT'] ?? 4445);
+		const myIp = process.env['SERVER_IP'] ?? '0.0.0.0';
+		return `http://${myIp}:${myPort}`;
+	}
+
 	private async requestResyncFromOrigin(roomId: string): Promise<void> {
 		const originIp = process.env['PUBLIC_IP'];
 
@@ -642,9 +648,9 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 
 		// 이 edge 서버가 origin에게 "나한테 파이프할 땐 이 주소로 해줘"라고 알려줄 자기 자신의 주소
 		const remotePipeApi = (this.#config as any).remotePipeApi ?? {};
-    	const myPort: number = remotePipeApi.port ?? 4445;
-    	const myIp: string = process.env['POD_IP'] ?? '0.0.0.0';
-    	const myUrl = `http://${myIp}:${myPort}`;
+    	//const myPort: number = remotePipeApi.port ?? 4445;
+    	//const myIp: string = process.env['POD_IP'] ?? '0.0.0.0';
+    	const myUrl = this.getMyRemotePipeUrl();
 		const bodyStr = JSON.stringify({ edgeUrl: myUrl });
 		
 		try {
@@ -713,9 +719,9 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 		const originHttpPort = Number(process.env['HTTP_LISTEN_PORT'] ?? '4443');
 
 		const remotePipeApi = (this.#config as any).remotePipeApi ?? {};
-		const myPort: number = Number(process.env['PIPE_PORT'] ?? 4445);//remotePipeApi.port ?? 4445;
-		const myIp: string = process.env['SERVER_IP'] ?? '0.0.0.0';
-		const myUrl = `http://${myIp}:${myPort}`;
+		//const myPort: number = Number(process.env['PIPE_PORT'] ?? 4445);//remotePipeApi.port ?? 4445;
+		//const myIp: string = process.env['SERVER_IP'] ?? '0.0.0.0';
+		const myUrl = this.getMyRemotePipeUrl();
 
 		const originBaseUrlForHeader = `https://${originIp}:${originHttpPort}`;
 		const bodyStr = JSON.stringify({ edgeUrl: myUrl });
