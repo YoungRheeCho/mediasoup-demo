@@ -3149,40 +3149,45 @@ export default class RoomClient {
 			try {
 				const statsReport = await consumer.getStats();
 				const ts = Date.now();
-				const rows = [];
+
+				const inboundStats = [];
+				let succeededPair = null;
 
 				statsReport.forEach(stat => {
-					if (stat.type !== 'inbound-rtp' || stat.isRemote) {
-                    	return;
-                	}
+					if (stat.type === 'inbound-rtp' && !stat.isRemote) {
+						inboundStats.push(stat);
+					} else if (stat.type === 'candidate-pair' && stat.state === 'succeeded' && stat.nominated) {
+						succeededPair = stat;
+					}
+				});
 
+				let remoteServer = null;
+				if (succeededPair) {
+					const remoteCandidate = statsReport.get(succeededPair.remoteCandidateId);
+					if (remoteCandidate) {
+						remoteServer = `${remoteCandidate.address ?? remoteCandidate.ip}:${remoteCandidate.port}`;
+					}
+				}
+
+				const rows = inboundStats.map(stat => {
 					const statObj = stat.toJSON ? stat.toJSON() : { ...stat };
-                    /*rows.push({
-                        timestamp: ts,
-                        peerId: this._peerId,
-                        consumerId: consumer.id,
-                        kind,
-                        type: stat.type,
-                        packetsReceived: stat.packetsReceived,
-                        packetsLost: stat.packetsLost,
-                        bytesReceived: stat.bytesReceived,
-                        jitter: stat.jitter,
-                        framesDecoded: stat.framesDecoded,
-                        frameWidth: stat.frameWidth,
-                        frameHeight: stat.frameHeight,
-                    });*/
-					rows.push({
+					return {
 						timestamp: ts,
+						remoteServer,
 						peerId: this._peerId,
 						displayName: this._displayName,
 						consumerId: consumer.id,
 						kind,
 						...statObj,
-                	});
-                });
+					};
+				});
 
 				if (window.__statsSocket && window.__statsSocket.readyState === WebSocket.OPEN) {
-					window.__statsSocket.send(JSON.stringify({ peerId: this._peerId, displayName: this._displayName, rows }));
+					window.__statsSocket.send(JSON.stringify({
+						peerId: this._peerId,
+						displayName: this._displayName,
+						rows,
+					}));
 				}
 			} catch (error) {
 				logger.warn('_startConsumerStatsCollection() | getStats() failed:%o', error);
