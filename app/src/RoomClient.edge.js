@@ -3137,7 +3137,9 @@ export default class RoomClient {
 	//----------------------------------------------------------------------------------------
 	//youngrhee
 	_startConsumerStatsCollection(consumer, kind) {
-		if (!collectStats) return; // stats 수집 안 하는 경우 아무 것도 안 함
+		if (!collectStats) return;
+    	if (kind !== 'video') return;
+
 		const intervalId = setInterval(async () => {
 			if (consumer.closed) {
 				clearInterval(intervalId);
@@ -3150,7 +3152,12 @@ export default class RoomClient {
 				const rows = [];
 
 				statsReport.forEach(stat => {
-                    rows.push({
+					if (stat.type !== 'inbound-rtp' || stat.isRemote) {
+                    	return;
+                	}
+
+					const statObj = stat.toJSON ? stat.toJSON() : { ...stat };
+                    /*rows.push({
                         timestamp: ts,
                         peerId: this._peerId,
                         consumerId: consumer.id,
@@ -3163,11 +3170,19 @@ export default class RoomClient {
                         framesDecoded: stat.framesDecoded,
                         frameWidth: stat.frameWidth,
                         frameHeight: stat.frameHeight,
-                    });
+                    });*/
+					rows.push({
+						timestamp: ts,
+						peerId: this._peerId,
+						displayName: this._displayName,
+						consumerId: consumer.id,
+						kind,
+						...statObj,
+                	});
                 });
 
 				if (window.__statsSocket && window.__statsSocket.readyState === WebSocket.OPEN) {
-					window.__statsSocket.send(JSON.stringify({ peerId: this._peerId, rows }));
+					window.__statsSocket.send(JSON.stringify({ peerId: this._peerId, displayName: this._displayName, rows }));
 				}
 			} catch (error) {
 				logger.warn('_startConsumerStatsCollection() | getStats() failed:%o', error);
