@@ -348,7 +348,6 @@ public async resyncProducersToEdge(edgeUrl: string): Promise<{ producerCount: nu
     return { producerCount: producers.length };
 }
 
-//------------------------------------------------------------------------------
 //youngrhee: edge로 가는 localPupeTransport를 기억해둠
 public closePipeToEdge(edgeUrl: string): { closed: boolean } {
     const transport = this.#edgePipeTransports.get(edgeUrl);
@@ -369,7 +368,6 @@ public closePipeToEdge(edgeUrl: string): { closed: boolean } {
 
     return { closed: true };
 }
-//------------------------------------------------------------------------------
 
 
 //----------------------------------------------------------------------------------------------------
