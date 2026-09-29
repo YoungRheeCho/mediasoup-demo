@@ -133,9 +133,12 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	'*': [
 		//{ url: 'http://10.20.13.157:4445' },  //hardcoding
 		//{ url: 'http://10.20.13.186:4445' }, //hardcoding
-		{ url: 'http://10.20.13.190:4445' }, 
+		/*{ url: 'http://10.20.13.190:4445' }, 
 		{ url: 'http://10.20.13.190:4446' }, 
-		{ url: 'http://10.20.13.190:4447' }, 
+		{ url: 'http://10.20.13.190:4447' }, */
+		{ url: 'http://10.1.2.2:4445' }, 
+		{ url: 'http://10.1.2.2:4446' }, 
+		{ url: 'http://10.1.2.2:4447' },
 	],
 	// 이 버전은 외부 ip를 생성하여 파드 환경에서 테스트 해보기 위함 -> 해당 파일 내용은 이미지 빌드 없이 configmap을 통해 실제 파드에 내용이 복사되어 적용됨
 	// #remotePipeTargetsByRoomId = {
