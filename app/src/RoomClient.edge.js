@@ -38,6 +38,14 @@ let store;
 // yun
 let oneWayDelay = 0;
 
+
+//-------------------------------------------------------------------
+//youngrhee: client qoe 계산하기 위한 설정
+const STATS_INTERVAL_MS = 2000;
+const FREEZE_GAP_MS = 300;      // 이 시간 넘게 새 프레임이 안 그려지면 freeze
+const MAX_BUFFER_ROWS = 5000;   // 소켓이 끊겼을 때 보관할 최대 행 수
+//-------------------------------------------------------------------
+
 function safeDelta(current, previous) {
 	if (current === undefined || previous === undefined) {
 		return null;
@@ -3136,7 +3144,7 @@ export default class RoomClient {
 
 	//----------------------------------------------------------------------------------------
 	//youngrhee
-	_startConsumerStatsCollection(consumer, kind) {
+	/*_startConsumerStatsCollection(consumer, kind) {
 		if (!collectStats) return;
     	if (kind !== 'video') return;
 
@@ -3198,6 +3206,166 @@ export default class RoomClient {
 		// consumer가 닫히면 인터벌도 정리
 		consumer.on('transportclose', () => clearInterval(intervalId));
 		consumer.observer.once('close', () => clearInterval(intervalId));
+	}*/
+	// 소켓이 끊겨 있어도 데이터가 사라지지 않게 버퍼에 쌓고, 열려 있을 때 보낸다.
+	_pushStatsRow(row) {
+		const buf = (this._statsBuffer ??= []);
+		buf.push(row);
+		if (buf.length > MAX_BUFFER_ROWS) buf.splice(0, buf.length - MAX_BUFFER_ROWS);
+	}
+ 
+	_flushStatsBuffer() {
+		const ws = window.__statsSocket;
+		const buf = this._statsBuffer;
+		if (!buf?.length || !ws || ws.readyState !== WebSocket.OPEN) return;
+ 
+		while (buf.length) {
+			const rows = buf.splice(0, 200);
+			try {
+				ws.send(JSON.stringify({ peerId: this._peerId, displayName: this._displayName, rows }));
+			} catch (error) {
+				buf.unshift(...rows);
+				return;
+			}
+		}
+	}
+ 
+	// protoo notification 핸들러에서 호출 (layer 변경, score 등). 사용 예는 파일 맨 아래.
+	_recordStatsEvent(consumerId, event, data = {}) {
+		if (!collectStats) return;
+		this._pushStatsRow({
+			rowType: 'event', event, data,
+			collectedAt: Date.now(), peerId: this._peerId, consumerId,
+		});
+	}
+ 
+	_findVideoElementForConsumer(consumer) {
+		const trackId = consumer.track?.id;
+		for (const video of document.querySelectorAll('video')) {
+			if (video.srcObject?.getVideoTracks?.().some(t => t.id === trackId)) return video;
+		}
+		return null;
+	}
+ 
+	_startConsumerStatsCollection(consumer, kind) {
+		if (!collectStats || kind !== 'video') return;
+ 
+		let stopped = false;
+		let timer = null;
+		let failCount = 0;
+		let lastRemoteServer = null;
+		let expectedAt = performance.now() + STATS_INTERVAL_MS;
+		const render = { video: null, lastFrameAt: null, presented: 0, width: null, height: null };
+ 
+		// 화면에 프레임이 그려질 때마다 호출: 해상도/프레임 수 갱신, 긴 공백은 freeze 이벤트로 기록
+		const onFrame = (now, m) => {
+			if (stopped) return;
+			if (render.lastFrameAt !== null && now - render.lastFrameAt > FREEZE_GAP_MS) {
+				this._pushStatsRow({
+					rowType: 'event', event: 'freeze',
+					collectedAt: Date.now(), peerId: this._peerId, consumerId: consumer.id,
+					data: {
+						startedAt: performance.timeOrigin + render.lastFrameAt, // epoch ms
+						durationMs: Math.round(now - render.lastFrameAt),
+					},
+				});
+			}
+			render.lastFrameAt = now;
+			render.presented = m.presentedFrames;
+			render.width = m.width;
+			render.height = m.height;
+			render.video.requestVideoFrameCallback(onFrame);
+		};
+ 
+		const attach = () => {
+			if (render.video) return;
+			const video = this._findVideoElementForConsumer(consumer);
+			if (video?.requestVideoFrameCallback) {
+				render.video = video;
+				video.requestVideoFrameCallback(onFrame);
+			}
+		};
+ 
+		const stop = () => {
+			stopped = true;
+			clearTimeout(timer);
+			this._flushStatsBuffer();
+		};
+ 
+		const tick = async () => {
+			if (stopped) return;
+			if (consumer.closed) return stop();
+ 
+			const lagMs = Math.max(0, performance.now() - expectedAt); // 예정보다 늦게 실행된 정도
+ 
+			try {
+				attach();
+ 
+				const statsReport = await consumer.getStats();
+				const collectedAt = Date.now();
+ 
+				const inboundStats = [];
+				let succeededPair = null;
+ 
+				statsReport.forEach(stat => {
+					if (stat.type === 'inbound-rtp' && !stat.isRemote) {
+						inboundStats.push(stat);
+					} else if (stat.type === 'candidate-pair' && stat.state === 'succeeded' && stat.nominated) {
+						succeededPair = stat;
+					}
+				});
+ 
+				if (succeededPair) {
+					const c = statsReport.get(succeededPair.remoteCandidateId);
+					if (c) lastRemoteServer = `${c.address ?? c.ip}:${c.port}`; // 못 찾으면 직전 값 유지
+				}
+ 
+				inboundStats.forEach(stat => {
+					const statObj = stat.toJSON ? stat.toJSON() : { ...stat };
+					this._pushStatsRow({
+						...statObj, // statObj.timestamp(브라우저 측정 시각)를 덮어쓰지 않는다.
+						rowType: 'stats',
+						collectedAt,
+						lagMs,
+						remoteServer: lastRemoteServer,
+						peerId: this._peerId,
+						displayName: this._displayName,
+						consumerId: consumer.id,
+						kind,
+						codecMimeType: statsReport.get(stat.codecId)?.mimeType ?? null,
+ 
+						// 렌더 기준 지표 (renderAttached=false 면 "freeze 없음"이 아니라 "측정 안 됨")
+						renderAttached: render.video !== null,
+						renderFrameWidth: render.width,
+						renderFrameHeight: render.height,
+						renderPresentedTotal: render.presented,
+ 
+						// 라벨에서 제외/보정할 구간 판단용
+						visibilityState: document.visibilityState,
+						consumerPaused: consumer.paused,
+						producerPaused: consumer.producerPaused,
+					});
+				});
+ 
+				failCount = 0;
+				this._flushStatsBuffer();
+			} catch (error) {
+				logger.warn('_startConsumerStatsCollection() | getStats() failed:%o', error);
+				if (++failCount >= 5) stop(); // 일시적 실패 하나로 수집이 멈추지 않게 5회까지 허용
+			} finally {
+				// 재귀 setTimeout: 이전 getStats 가 끝나기 전에 다음 호출이 겹치지 않는다.
+				if (!stopped) {
+					expectedAt = performance.now() + STATS_INTERVAL_MS;
+					timer = setTimeout(tick, STATS_INTERVAL_MS);
+				}
+			}
+		};
+ 
+		consumer.on('transportclose', stop);
+		consumer.observer.once('close', stop);
+ 
+		attach(); // 첫 tick 전 프레임도 놓치지 않도록 즉시 시도
+		timer = setTimeout(tick, STATS_INTERVAL_MS);
 	}
 
 	_watchForKeyFrame(consumer, { timeoutMs = 3000, checkIntervalMs = 300, maxRetries = 5, retryIntervalMs = 1500 } = {}) {
