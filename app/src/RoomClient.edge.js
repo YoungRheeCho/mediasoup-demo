@@ -7,10 +7,15 @@ import * as cookiesManager from './cookiesManager';
 import * as requestActions from './redux/requestActions';
 import * as stateActions from './redux/stateActions';
 import * as e2e from './e2e';
+import { startNiqeSampler } from './niqeSampler';
 
 const role = new URLSearchParams(window.location.search).get('role') || 'viewer'; // yun
 // 추가: stats 수집 여부 (뷰봇이 URL에 ?collectStats=1 을 붙였을 때만 활성화)
 const collectStats = new URLSearchParams(window.location.search).get('collectStats') === '1';
+// collectStats=1이면 NIQE도 기본으로 켜고, ?collectNiqe=0일 때만 끔
+const collectNiqe = new URLSearchParams(window.location.search).get('collectNiqe') !== '0';
+// 추가: getStats와 NIQE 표본 주기 (ms)
+const STATS_INTERVAL_MS = Math.max(100, Number(new URLSearchParams(window.location.search).get('statsIntervalMs')) || 1000);
 
 const WEBCAM_VIDEO_CONSTRAINS = {
 	qvga: { width: { ideal: 320 }, height: { ideal: 240 } },
@@ -3140,9 +3145,18 @@ export default class RoomClient {
 		if (!collectStats) return;
     	if (kind !== 'video') return;
 
-		const intervalId = setInterval(async () => {
-			if (consumer.closed) {
+		// 추가: NIQE sampler, 인터벌과 함께 정리
+		const niqeSampler = collectNiqe ? startNiqeSampler(consumer.track, { intervalMs: STATS_INTERVAL_MS }) : null;
+		let intervalId = null;
+		const stop = () => {
 				clearInterval(intervalId);
+				niqeSampler?.stop();
+		};
+
+		intervalId = setInterval(async () => {
+			if (consumer.closed) {
+				//clearInterval(intervalId);
+				stop();
 				return;
 			}
 
@@ -3168,7 +3182,8 @@ export default class RoomClient {
 						remoteServer = `${remoteCandidate.address ?? remoteCandidate.ip}:${remoteCandidate.port}`;
 					}
 				}
-
+				const niqeSamples = niqeSampler ? niqeSampler.take() : [];
+                const lastNiqe = niqeSamples[niqeSamples.length - 1];
 				const rows = inboundStats.map(stat => {
 					const statObj = stat.toJSON ? stat.toJSON() : { ...stat };
 					return {
@@ -3179,6 +3194,9 @@ export default class RoomClient {
 						consumerId: consumer.id,
 						kind,
 						...statObj,
+						niqe: lastNiqe?.niqe ?? null,   // 추가
+						niqeAt: lastNiqe?.at ?? null,   // 추가
+						niqeSamples,
 					};
 				});
 
@@ -3191,13 +3209,16 @@ export default class RoomClient {
 				}
 			} catch (error) {
 				logger.warn('_startConsumerStatsCollection() | getStats() failed:%o', error);
-				clearInterval(intervalId);
+				//clearInterval(intervalId);
+				stop();
 			}
-		}, 2000); // 2초 주기, 필요에 맞게 조절
+		}, STATS_INTERVAL_MS);
 
 		// consumer가 닫히면 인터벌도 정리
-		consumer.on('transportclose', () => clearInterval(intervalId));
-		consumer.observer.once('close', () => clearInterval(intervalId));
+		/*consumer.on('transportclose', () => clearInterval(intervalId));
+		consumer.observer.once('close', () => clearInterval(intervalId));*/
+		consumer.on('transportclose', stop);
+		consumer.observer.once('close', stop);
 	}
 
 	_watchForKeyFrame(consumer, { timeoutMs = 3000, checkIntervalMs = 300, maxRetries = 5, retryIntervalMs = 1500 } = {}) {
