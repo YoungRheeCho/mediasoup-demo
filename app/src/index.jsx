@@ -60,8 +60,8 @@ async function run() {
 
 	const urlParser = new UrlParse(window.location.href, true);
 	const peerId = randomString({ length: 8 }).toLowerCase();
-//	let roomId = urlParser.query.roomId;
-	let roomId = 'test-room'; // yun: for test
+	let roomId = urlParser.query.roomId;
+	//let roomId = 'test-room'; // yun: for test
 	urlParser.query.roomId = roomId;
 	window.history.replaceState('', '', urlParser.toString());
 	let displayName =
@@ -123,14 +123,14 @@ async function run() {
 		window.NETWORK_THROTTLE_SECRET = throttleSecret;
 	}
 
-	/* yun: for test
+	// yun: for test
 	if (!roomId) {
 		roomId = randomString({ length: 8 }).toLowerCase();
 
 		urlParser.query.roomId = roomId;
 		window.history.pushState('', '', urlParser.toString());
 	}
-	*/
+	
 
 	// Get the effective/shareable Room URL.
 	const roomUrlParser = new UrlParse(window.location.href, true);
