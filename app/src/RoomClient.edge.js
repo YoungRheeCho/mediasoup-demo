@@ -3276,7 +3276,9 @@ export default class RoomClient {
 		let lastRemoteServer = null;
 		let expectedAt = performance.now() + STATS_INTERVAL_MS;
 		const render = { video: null, lastFrameAt: null, presented: 0, width: null, height: null };
- 
+		// NIQE: 디코딩된 프레임을 STATS_INTERVAL_MS마다 1장씩 worker에서 계산 (?collectNiqe=0이면 끔)
+		const niqeSampler = collectNiqe ? startNiqeSampler(consumer.track, { intervalMs: STATS_INTERVAL_MS }) : null;
+
 		// 화면에 프레임이 그려질 때마다 호출: 해상도/프레임 수 갱신, 긴 공백은 freeze 이벤트로 기록
 		const onFrame = (now, m) => {
 			if (stopped) return;
@@ -3309,6 +3311,7 @@ export default class RoomClient {
 		const stop = () => {
 			stopped = true;
 			clearTimeout(timer);
+			niqeSampler?.stop();
 			this._flushStatsBuffer();
 		};
  
@@ -3339,7 +3342,11 @@ export default class RoomClient {
 					const c = statsReport.get(succeededPair.remoteCandidateId);
 					if (c) lastRemoteServer = `${c.address ?? c.ip}:${c.port}`; // 못 찾으면 직전 값 유지
 				}
- 
+
+				// 이전 tick 이후 계산된 NIQE 결과 (각 표본의 at = 프레임을 꺼낸 시각, Date.now() 기준)
+				const niqeSamples = niqeSampler ? niqeSampler.take() : [];
+				const lastNiqe = niqeSamples[niqeSamples.length - 1];
+
 				inboundStats.forEach(stat => {
 					const statObj = stat.toJSON ? stat.toJSON() : { ...stat };
 					this._pushStatsRow({
@@ -3364,6 +3371,11 @@ export default class RoomClient {
 						visibilityState: document.visibilityState,
 						consumerPaused: consumer.paused,
 						producerPaused: consumer.producerPaused,
+
+						// NIQE (화질, 낮을수록 좋음). 분석 시에는 niqeSamples의 at으로 1초 칸에 정렬
+						niqe: lastNiqe?.niqe ?? null,
+						niqeAt: lastNiqe?.at ?? null,
+						niqeSamples,
 					});
 				});
  
