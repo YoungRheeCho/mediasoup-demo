@@ -127,6 +127,7 @@ export type WorkerAppData = {
 
 export type WebRtcTransportAppData = {
 	direction: TransportDirection;
+	peerId?: string;
 };
 
 export type PlainTransportAppData = {
