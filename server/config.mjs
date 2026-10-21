@@ -48,7 +48,7 @@ export const config = {
 	mediasoup: {
 		// Number of mediasoup workers to launch.
 		//numWorkers: Object.keys(os.cpus()).length,
-		numWorkers: 2,
+		numWorkers: 1,
 		/**
 		 * mediasoup WorkerSettings.
 		 *
