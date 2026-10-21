@@ -125,8 +125,10 @@ export type WorkerAppData = {
 	idx: number;
 };
 
+//youngrhee: transport 객체별 peerId 저장
 export type WebRtcTransportAppData = {
 	direction: TransportDirection;
+	peerId?: string;
 };
 
 export type PlainTransportAppData = {

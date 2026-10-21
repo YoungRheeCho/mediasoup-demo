@@ -863,6 +863,8 @@ export class Peer extends EnhancedEventEmitter<PeerEvents> {
 				});
 
 				this.#transports.set(transport.id, transport);
+				//youngrhee: transport 객체별 peerId 저장
+				transport.appData.peerId = this.#peerId;
 
 				this.handleTransport(transport);
 
