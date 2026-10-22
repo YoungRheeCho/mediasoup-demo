@@ -188,6 +188,10 @@ function startVideoStatsMonitor(consumer, { logger, onStats, intervalMs = 1000 }
 				framesDecoded: inbound.framesDecoded ?? null,
 				framesDropped: inbound.framesDropped ?? null,
 				framesPerSecond: inbound.framesPerSecond ?? null,
+				//youngrhee-----------------------------------------------------
+				freezeCount: inbound.freezeCount ?? null,                     // ← 추가
+                totalFreezesDuration: inbound.totalFreezesDuration ?? null,   // ← 추가 (초)
+				//--------------------------------------------------------------
 
 				frameWidth: inbound.frameWidth ?? null,
 				frameHeight: inbound.frameHeight ?? null,
@@ -685,6 +689,19 @@ export default class RoomClient {
 										);
 										// window.VIDEO_STATS = window.VIDEO_STATS || {};
 										// window.VIDEO_STATS[consumer.id] = stats;
+										//youngrhee----------------------------------------------------------------------
+										 if (!this._lastClientReportAt || Date.now() - this._lastClientReportAt >= 5000) {
+											this._lastClientReportAt = Date.now();
+											this._protoo.notify('reportClientStats', {
+												freezeCount: stats.freezeCount,
+												freezeSec: stats.totalFreezesDuration,
+												framesDropped: stats.framesDropped,
+												fps: stats.framesPerSecond ?? stats.decodedFps ?? null,
+												jitterBufferMs: stats.avgJitterBufferDelayMs ?? null,
+												width: stats.frameWidth,
+												height: stats.frameHeight,
+											}).catch(() => {});
+										}
 
 										console.log(
 											`[video-stats] ` +

@@ -397,28 +397,33 @@ export class Peer extends EnhancedEventEmitter<PeerEvents> {
 
 						if (consumer.kind === 'video' && i === 0) {
 							setTimeout(async () => {
-								const stats = await consumer.getStats();
-								const dump = await consumer.dump();
-								console.warn('[EDGE-VIEWER-CONSUMER-STATS]', {
-									consumerId: consumer.id,
-									producerId: consumer.producerId,
-									transportId: transport.id,
+								if (consumer.closed) return;
+								try {
+									const stats = await consumer?.getStats();
+									const dump = await consumer.dump();
+									console.warn('[EDGE-VIEWER-CONSUMER-STATS]', {
+										consumerId: consumer.id,
+										producerId: consumer.producerId,
+										transportId: transport.id,
+	
+										paused: consumer.paused,
+										producerPaused: consumer.producerPaused,
+	
+										type: consumer.type,
+										currentLayers: consumer.currentLayers,
+										preferredLayers: consumer.preferredLayers,
+	
+										score: consumer.score,
+										stats
+									});
+	
+									console.warn(
+										'[EDGE-VIEWER-CONSUMER-DUMP]',
+										dump
+									);
+								} catch (error){
 
-									paused: consumer.paused,
-									producerPaused: consumer.producerPaused,
-
-									type: consumer.type,
-									currentLayers: consumer.currentLayers,
-									preferredLayers: consumer.preferredLayers,
-
-									score: consumer.score,
-									stats
-								});
-
-								console.warn(
-									'[EDGE-VIEWER-CONSUMER-DUMP]',
-									dump
-								);
+								}
 							}, 5000);
 						}
 
@@ -733,6 +738,18 @@ export class Peer extends EnhancedEventEmitter<PeerEvents> {
 				break;
 			}
 
+			//youngrhee---------------------------------------------------------------------------------
+			case 'reportClientStats': {
+                                // 대시보드용: 시청자 브라우저가 보고한 재생 품질. 넣어 두기만 하고 서버는 쓰지 않는다.
+                                const transport = this.getConsumerWebRtcTransport();
+
+                                if (transport) {
+                                        (transport.appData as any).clientStats = { ...data, at: Date.now() };
+                                }
+
+                                break;
+            }
+			//---------------------------------------------------------------------------------
 			case 'pauseProducer': {
 				const { producerId } = data;
 				const producer = this.assertAndGetProducer(producerId);

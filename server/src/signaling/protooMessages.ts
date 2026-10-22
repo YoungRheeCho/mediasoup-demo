@@ -35,6 +35,20 @@ type NotificationFromPeer =
 				producerId: string;
 			};
 	  }
+	//youngrhee-----------------------------------------------------------  
+	| {
+					name: 'reportClientStats';
+					data: {
+							freezeCount: number | null;     // 누적
+							freezeSec: number | null;       // 누적 (초)
+							framesDropped: number | null;   // 누적
+							fps: number | null;
+							jitterBufferMs: number | null;
+							width: number | null;
+							height: number | null;
+					};
+		}
+	//---------------------------------------------------------------------
 	| {
 			name: 'pauseProducer';
 			data: {
