@@ -570,15 +570,15 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
             );
 
 			// yeon: metrics agent로 현재 viewer count 전달.
-			void reportViewerCount(viewerCount)
-				.catch(error => {
+			void reportViewerCount(viewerCount);
+				/*.catch(error => {
 					this.#logger.warn(
 						'[VIEWER-COUNT] failed to report to metrics agent ' +
 						'[viewerCount:%d]: %o',
 						viewerCount,
 						error
 					);
-				});
+				});*/
 			this.mayClose();
 		});
 
@@ -597,15 +597,15 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
             );
 
 			// yeon: metrics agent로 현재 viewer count 전달.
-			void reportViewerCount(viewerCount)
-				.catch(error => {
+			void reportViewerCount(viewerCount);
+				/*.catch(error => {
 					this.#logger.warn(
 						'[VIEWER-COUNT] failed to report to metrics agent ' +
 						'[viewerCount:%d]: %o',
 						viewerCount,
 						error
 					);
-				});
+				});*/
 			const otherPeers = this.getOtherPeers(peer);
 			const broadcasterPeers = this.getAllBroadcasterPeers();
 
