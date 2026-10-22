@@ -150,6 +150,8 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 		'*': [
 			{ url: 'http://10.20.13.157:4445' }, //hardcoding
 			{ url: 'http://10.20.13.190:4445' }, //hardcoding
+			//{ url: 'http://10.20.13.186:4445' }, //hardcoding
+			//{ url: 'http://10.1.2.3:4445' }, //hardcoding
 		],
 
 		// 특정 roomId에만 다르게 적용하고 싶으면:
@@ -174,7 +176,6 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	// yeon
 	// edge
 	public async onExternalProducer(producer: mediasoupTypes.Producer<ProducerAppData>): Promise<void> {
-
 		this.#observedProducers.set(producer.id, producer);
 
 		producer.observer.on('close', () => {
@@ -559,20 +560,25 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 			this.#joiningPeers.delete(peer.id);
 			this.#peers.delete(peer.id);
 
-
-			// yeon: viewer count 
+			// yeon: viewer count
 			const viewerCount = this.#peers.size;
 			// viewer count 변경 전달
-
 			this.#logger.warn(
-				'[VIEWER-COUNT] closed peerId=%s viewerCount=%d',
-				peer.id,
-				viewerCount
-			);
+                '[VIEWER-COUNT] closed peerId=%s viewerCount=%d',
+                peer.id,
+                viewerCount
+            );
 
 			// yeon: metrics agent로 현재 viewer count 전달.
-			reportViewerCount(viewerCount);
-
+			void reportViewerCount(viewerCount)
+				.catch(error => {
+					this.#logger.warn(
+						'[VIEWER-COUNT] failed to report to metrics agent ' +
+						'[viewerCount:%d]: %o',
+						viewerCount,
+						error
+					);
+				});
 			this.mayClose();
 		});
 
@@ -583,16 +589,23 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 
 			// yeon: viewer count
 			const viewerCount = this.#peers.size;
-
+			
 			this.#logger.warn(
-				'[VIEWER-COUNT] joined peerId=%s viewerCount=%d',
-				peer.id,
-				viewerCount
-			);
+                '[VIEWER-COUNT] closed peerId=%s viewerCount=%d',
+                peer.id,
+                viewerCount
+            );
 
-			// yeon: metrics agent로 현재 viewer count 전달
-			void reportViewerCount(viewerCount);
-
+			// yeon: metrics agent로 현재 viewer count 전달.
+			void reportViewerCount(viewerCount)
+				.catch(error => {
+					this.#logger.warn(
+						'[VIEWER-COUNT] failed to report to metrics agent ' +
+						'[viewerCount:%d]: %o',
+						viewerCount,
+						error
+					);
+				});
 			const otherPeers = this.getOtherPeers(peer);
 			const broadcasterPeers = this.getAllBroadcasterPeers();
 
@@ -660,7 +673,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 						);
 					});
 			}
-
+			
 			this.#logger.warn('[JOIN] finished external producer loop for peerId=%s', peer.id);
 
 			void peer.consumeData({ dataProducer: this.#bot.getDataProducer() });

@@ -1,0 +1,24 @@
+1. origin/edge에서 mediasoup-demo server/app 실행
+2. run_tshark.sh 실행
+3. chromium 실행
+4. analyzing.sh 실행
+
+========== CSV ==========
+1. frame_drop_only.csv
+   : chromium 실행 log에서 frame drop 로그만 추출해서 csv 파일로 저장
+2. late_drop_cause_analysis.csv
+   : late/drop 원인 분석한 파일
+3. pcap_receiver_packet_compare.csv
+   : tshark 결과랑 packet 대조해서 분석한 파일
+
+========== TXT ==========
+1. late_drop_cause_summary.txt
+   : late/drop 원인 요약 파일
+2. late_drop_frames.txt
+   : late/drop 프레임 분류한 파일
+
+========== TSHARK ==========
+1. rtp_packets.csv
+   : pcapng에서 RTP packet 추출해서 csv로 변환한 파일
+2. udp_conversations.txt
+   : pcapng에서 UDP packet 추출해서 저장한 파일

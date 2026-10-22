@@ -97,7 +97,6 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 	readonly #networkThrottleAwaitQueue: AwaitQueue = new AwaitQueue();
 	readonly #createdAt: Date;
 	#closed: boolean = false;
-
 	// yeon
 	// Server 클래스 내부
 	#remotePipeHttpServer?: http.Server;
@@ -129,7 +128,6 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 			apiServer,
 			networkThrottleSecret,
 		});
-
 		// yeon
 		// edge
 		server.startRemotePipeApi(); //여기서 Expipe를 위한 서버를 구축하는 함수 호출
@@ -164,7 +162,6 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 			throw new Error('Invalid JSON body');
 		}
 	}
-
 	// yeon
 	// edge
 	private sendJson(res: http.ServerResponse, status: number, obj: any) {
@@ -211,7 +208,16 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 						const { enableSctp, numSctpStreams, enableRtx, enableSrtp } = body;
 
 						const transport = await router.createPipeTransport({
-							listenInfo: { protocol: 'udp', ip: pipeBindIp },
+							//listenInfo: { protocol: 'udp', ip: pipeBindIp },
+							listenInfo: { 
+								protocol: 'udp',
+								ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
+								announcedAddress: pipeBindIp,
+								portRange:{
+									min: Number(process.env['MEDIASOUP_MIN_PORT'] ?? 40000),
+									max: Number(process.env['MEDIASOUP_MAX_PORT'] ?? 40999),
+								}
+						 	},
 							enableSctp: Boolean(enableSctp),
 							numSctpStreams: numSctpStreams ?? { OS: 1024, MIS: 1024 },
 							enableRtx: Boolean(enableRtx),
@@ -336,8 +342,8 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 				// share the same listening port. Hence we increase the port for each
 				// Worker.
 				const clonnedWebRtcServerOptions = clone(webRtcServerOptions);
+				//const portIncrement = workersAndWebRtcServers.size - 1;
 				const portIncrement = idx;
-
 				for (const listenInfo of clonnedWebRtcServerOptions.listenInfos) {
 					listenInfo.port! += portIncrement;
 				}
@@ -461,7 +467,6 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 		this.#httpServer.close();
 		// yeon
 		this.#remotePipeHttpServer?.close();
-
 		this.#httpServer.closeAllConnections();
 
 		// Close all existing HTTP/WS connections.
@@ -470,7 +475,7 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 		}
 
 		if (this.#networkThrottleEnabled) {
-			this.stopNetworkThrottleInternal().catch(() => { });
+			this.stopNetworkThrottleInternal().catch(() => {});
 		}
 
 		// NOTE: We don't stop this.#networkThrottleAwaitQueue on purpose.
@@ -585,6 +590,19 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 
 			this.emit('new-room', room);
 
+			//--------------------------------------------------------------------------------------------
+			// youngrhee
+			// 새로 만들어진 room이니, origin에게 지금 활성화된 producer들을
+			// 다시 파이프해달라고 요청 (viewer 응답을 막지 않도록 기다리지 않음)
+			void this.requestResyncFromOrigin(roomId).catch(error => {
+				logger.warn(
+					'getOrCreateRoom() | requestResyncFromOrigin() failed [roomId:%o]: %o',
+					roomId,
+					error
+				);
+			});
+			//--------------------------------------------------------------------------------------------
+
 			return room;
 		}, 'getOrCreateRoom()');
 	}
@@ -604,6 +622,161 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 		return { worker, webRtcServer };
 	}
 
+	//----------------------------------------------------------------------------
+	//youngrhee
+	// edge: origin에게 "나 새로 열렸어, 지금 활성 producer들 다시 파이프해줘"라고 요청
+	private getMyRemotePipeUrl(): string {
+		const myPort = Number(process.env['PIPE_PORT'] ?? 4445);
+		const myIp = process.env['SERVER_IP'] ?? '0.0.0.0';
+		return `http://${myIp}:${myPort}`;
+	}
+
+	private async requestResyncFromOrigin(roomId: string): Promise<void> {
+		const originIp = process.env['PUBLIC_IP'];
+
+		if (!originIp) {
+			logger.warn(
+				'requestResyncFromOrigin() | ORIGIN_API_URL not configured, skipping resync [roomId:%o]',
+				roomId
+			);
+
+			return;
+		}
+
+		const originHttpPort = process.env['ORIGIN_HTTP_LISTEN_PORT'] ?? '4443';
+    	const originBaseUrl = `https://${originIp}:${originHttpPort}`;
+
+		// 이 edge 서버가 origin에게 "나한테 파이프할 땐 이 주소로 해줘"라고 알려줄 자기 자신의 주소
+		const remotePipeApi = (this.#config as any).remotePipeApi ?? {};
+    	//const myPort: number = remotePipeApi.port ?? 4445;
+    	//const myIp: string = process.env['POD_IP'] ?? '0.0.0.0';
+    	const myUrl = this.getMyRemotePipeUrl();
+		const bodyStr = JSON.stringify({ edgeUrl: myUrl });
+		
+		try {
+			const caCert = fs.readFileSync('./certs/cert.pem');
+
+			const result = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+            const req = https.request(
+                {
+                    hostname: originIp,
+                    port: originHttpPort,
+                    path: `/rooms/${roomId}/resync`,
+                    method: 'POST',
+                    ca: caCert,
+					checkServerIdentity: () => undefined,
+                    headers: {
+                        'content-type': 'application/json',
+                        'content-length': Buffer.byteLength(bodyStr),
+                        origin: originBaseUrl,
+                    },
+                },
+                res => {
+                    let data = '';
+                    res.on('data', chunk => { data += chunk; });
+                    res.on('end', () => {
+                        resolve({ status: res.statusCode ?? 0, body: data });
+                    });
+                }
+            );
+
+            	req.on('error', reject);
+            	req.write(bodyStr);
+            	req.end();
+			});
+
+			if (result.status < 200 || result.status >= 300) {
+				logger.warn(
+					'requestResyncFromOrigin() | origin responded with non-OK status [roomId:%o, status:%o, body:%o]',
+					roomId,
+					result.status,
+					result.body
+				);
+				return;
+			}
+
+       		 const parsed = JSON.parse(result.body) as { producerCount: number };
+
+			logger.info(
+				'requestResyncFromOrigin() | succeeded [roomId:%o, producerCount:%o]',
+				roomId,
+				parsed.producerCount
+			);
+		} catch (error) {
+			logger.warn(
+				'requestResyncFromOrigin() | failed [roomId:%o]: %o',
+				roomId,
+				error
+			);
+		}
+	}
+
+	// edge: 이 room이 닫혔다는 걸 origin에게 알려서, 그 파이프를 닫아달라고 요청
+	private async notifyOriginRoomClosed(roomId: string): Promise<void> {
+		const originIp = process.env['PUBLIC_IP'];
+		if (!originIp) return;
+
+		const originHttpPort = Number(process.env['HTTP_LISTEN_PORT'] ?? '4443');
+
+		const remotePipeApi = (this.#config as any).remotePipeApi ?? {};
+		//const myPort: number = Number(process.env['PIPE_PORT'] ?? 4445);//remotePipeApi.port ?? 4445;
+		//const myIp: string = process.env['SERVER_IP'] ?? '0.0.0.0';
+		const myUrl = this.getMyRemotePipeUrl();
+
+		const originBaseUrlForHeader = `https://${originIp}:${originHttpPort}`;
+		const bodyStr = JSON.stringify({ edgeUrl: myUrl });
+
+		try {
+			const caCert = fs.readFileSync('./certs/cert.pem');
+
+			const result = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+				const req = https.request(
+					{
+						hostname: originIp,
+						port: originHttpPort,
+						path: `/rooms/${roomId}/edge-closed`,
+						method: 'POST',
+						ca: caCert,
+						checkServerIdentity: () => undefined,
+						headers: {
+							'content-type': 'application/json',
+							'content-length': Buffer.byteLength(bodyStr),
+							origin: originBaseUrlForHeader,
+						},
+					},
+					res => {
+						let data = '';
+						res.on('data', chunk => { data += chunk; });
+						res.on('end', () => resolve({ status: res.statusCode ?? 0, body: data }));
+					}
+				);
+
+				req.on('error', reject);
+				req.write(bodyStr);
+				req.end();
+			});
+
+			if (result.status < 200 || result.status >= 300) {
+				logger.warn(
+					'notifyOriginRoomClosed() | origin responded with non-OK status [roomId:%o, status:%o, body:%o]',
+					roomId, result.status, result.body
+				);
+				return;
+			}
+
+			const parsed = JSON.parse(result.body) as { closed: boolean; reason?: string };
+
+			logger.info(
+				'notifyOriginRoomClosed() | succeeded [roomId:%o, closed:%o, reason:%o]',
+				roomId,
+				parsed.closed,
+				parsed.reason
+			);
+		} catch (error) {
+			logger.warn('notifyOriginRoomClosed() | failed [roomId:%o]: %o', roomId, error);
+		}
+	}
+	//----------------------------------------------------------------------------
 	private async applyNetworkThrottle({
 		secret,
 		options,
@@ -801,10 +974,20 @@ export class Server extends EnhancedEventEmitter<ServerEvents> {
 					'the Room that applied network throttle closed, stopping network throttle...'
 				);
 
-				this.stopNetworkThrottleInternal().catch(() => { });
+				this.stopNetworkThrottleInternal().catch(() => {});
 			}
 
 			this.#networkThrottleEnabledByRoomId = undefined;
+			//--------------------------------------------------------------------------------
+			//youngrhee: 이 방이 닫혔으니, origin에게도 이 edge로 가는 파이프를 닫아달라고 알림
+			void this.notifyOriginRoomClosed(room.id).catch(error => {
+				logger.warn(
+					'handleRoom() | notifyOriginRoomClosed() failed [roomId:%o]: %o',
+					room.id,
+					error
+				);
+			});
+			//--------------------------------------------------------------------------------
 		});
 
 		room.on(

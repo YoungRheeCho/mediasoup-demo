@@ -1,0 +1,41 @@
+apiVersion: autoscaling.k8s.io/v1alpha1
+kind: MultidimPodAutoscaler
+metadata:
+  name: mediasoup-edge-mpa
+  namespace: qos
+spec:
+  # 어떤 Deployment를 대상으로 할지
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mediasoup-edge
+
+  # VPA 쪽 정책
+  resourcePolicy:
+    containerPolicies:
+      # app은 아예 손대지 않음
+      - containerName: mediasoup-app
+        mode: "Off"
+      - containerName: 'mediasoup-server'
+        minAllowed:
+          cpu: 200m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 4
+          memory: 8Gi
+        controlledResources: ["cpu", "memory"]
+
+  # Horizontal(HPA) 범위
+  # hostNetwork + 고정 포트라서 replicas 늘리면 충돌 발생 가능 -> 일단 1로 고정
+  constraints:
+    minReplicas: 2
+    maxReplicas: 2
+
+  # HPA 목표 지표 (기본 recommender가 replicas 추천할 때 사용)
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 30

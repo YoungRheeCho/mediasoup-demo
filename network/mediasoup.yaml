@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mediasoup-edge
+  labels:
+    app: mediasoup-edge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mediasoup-edge
+  template:
+    metadata:
+      labels:
+        app: mediasoup-edge
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      # private GHCR이면 주석 해제
+      imagePullSecrets:
+      - name: regcred
+
+      securityContext:
+        seccompProfile:
+          type: Localhost
+          localhostProfile: allow-io-uring.json
+    ## mediasoup-certs라는 Secret에 들어있는 파일들을 certs라는 볼륨 이름으로 쓰겠다
+      volumes:
+      - name: certs
+        secret:
+          secretName: mediasoup-certs
+
+      containers:
+      - name: mediasoup-server
+        image: ghcr.io/ahnyeohn/mediasoup-server-edge:v1
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DEBUG
+          value: "mediasoup*"
+        - name: SERVER_IP
+          value: "10.20.13.157"
+        ports:
+        - name: signaling
+          containerPort: 4443
+          protocol: TCP
+        - name: pipeapi
+          containerPort: 4445
+          protocol: TCP
+        volumeMounts:
+        - name: certs
+          mountPath: /work/mediasoup-demo/server/certs
+          readOnly: true
+
+      - name: mediasoup-app
+        image: ghcr.io/ahnyeohn/mediasoup-app-edge:v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: web
+          containerPort: 5555
+          protocol: TCP
+        volumeMounts:
+        - name: certs
+          mountPath: /work/mediasoup-demo/server/certs
+          readOnly: true

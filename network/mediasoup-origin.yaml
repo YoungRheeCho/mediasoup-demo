@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mediasoup-origin
+  labels:
+    app: mediasoup-origin
+  namespace: qos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mediasoup-origin
+  template:
+    metadata:
+      labels:
+        app: mediasoup-origin
+    spec:
+      # 오리진에서 edge의 엔드포인트를 접근하기 위한 권한이다.
+      # 레플리카 수가 증가함에 따라 새로 생기는 엣지의 엔드포인트를 갱신하기 위해 사용
+      serviceAccountName: origin-sa
+
+      ## 노드에서 레플리카를 2개 이상으로 늘리려면 호스트 네트워크 맟 아래 dnspolicy는 주석 처리해야 함
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      nodeSelector:
+        role: origin
+      tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
+      # private GHCR이면 주석 해제
+      imagePullSecrets:
+      - name: regcred
+
+      securityContext:
+        seccompProfile:
+          type: Localhost
+          localhostProfile: allow-io-uring.json
+    ## mediasoup-certs라는 Secret에 들어있는 파일들을 certs라는 볼륨 이름으로 쓰겠다
+      volumes:
+      - name: certs
+        hostPath:
+          path: /home/n2sl/yeon/qos/network/mediasoup-demo/server/certs
+          type: Directory
+        # secret:
+        #   secretName: mediasoup-certs
+
+      containers:
+      - name: mediasoup-server
+        image: ghcr.io/ahnyeohn/mediasoup-server-origin:v1
+        imagePullPolicy: Always
+        resources:
+            requests:
+              cpu: 200m
+              memory: 100Mi
+            limits:
+              cpu: 400m
+              memory: 200Mi
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DEBUG
+          value: "mediasoup*"
+        - name: SERVER_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        ports:
+        - name: signaling
+          containerPort: 4443
+          protocol: TCP
+        - name: pipeapi
+          containerPort: 4445
+          protocol: TCP
+        volumeMounts:
+        - name: certs
+          mountPath: /work/mediasoup-demo/server/certs
+          readOnly: true
+
+      - name: mediasoup-app
+        image: ghcr.io/ahnyeohn/mediasoup-app-origin:v1
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
+        ports:
+        - name: web
+          containerPort: 5555
+          protocol: TCP
+        volumeMounts:
+        - name: certs
+          mountPath: /work/mediasoup-demo/server/certs
+          readOnly: true

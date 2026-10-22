@@ -277,7 +277,6 @@ export class Peer extends EnhancedEventEmitter<PeerEvents> {
 		producer: mediasoupTypes.Producer<ProducerAppData>;
 		consumerReplicas: number;
 	}): Promise<void> {
-
 		this.#logger.debug(
 			'consume() [peerId:%o, producerId:%o, source:%o]',
 			producer.appData.peerId,
@@ -901,6 +900,8 @@ export class Peer extends EnhancedEventEmitter<PeerEvents> {
 				});
 
 				this.#transports.set(transport.id, transport);
+				//youngrhee: transport 객체별 peerId 저장
+				transport.appData.peerId = this.#peerId;
 
 				this.handleTransport(transport);
 

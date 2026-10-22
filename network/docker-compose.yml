@@ -1,0 +1,68 @@
+services:
+  mediasoup-server:
+    network_mode: "host"
+    # image: anyeon07/mediasoup-server-edge:v1
+    image: ghcr.io/ahnyeohn/mediasoup-server-edge:v1
+    build:
+      context: . #./mediasoup-demo/server/
+      dockerfile: mediasoup-demo/server/Dockerfile
+    container_name: mediasoup-server
+    # 컨테이너에서 io_uring을 사용하기 위한 옵션
+    # 그러나 모든 syscall을 허용하기 때문에 보안에 이슈가 존재할 수 있음
+    # security_opt:
+    #   - seccomp=unconfined
+    security_opt:
+      - seccomp=mediasoup-demo/server/seccomp/allow-io-uring.json
+    environment:
+      - NODE_ENV=production
+      - DEBUG=mediasoup*
+      
+      # signaling 포트 이게 없어도 기본은 4443이라 굳이 필요없음
+      # - HTTP_LISTEN_PORT=4443
+
+      # SERVER_IP (엣지 SFU의 IP로, client가 접근 가능한 주소)
+      # 명령을 실행하는 서버의 ip를 기입
+      # - SERVER_IP=10.20.13.157
+      
+      # plain transport port range (config와 일치) 기본값이 존재해서 없어도 됨
+      # - MEDIASOUP_MIN_PORT=40000
+      # - MEDIASOUP_MAX_PORT=40999
+
+    # ports:
+    #   # HTTPS/WSS signaling
+    #   - "4443:4443/tcp"
+    #   # RemotePipe Server
+    #   - "4445:4445/tcp"
+
+    #   # WebRtcServerOptions port (UDP + TCP 둘 다)
+    #   - "44444:44444/udp"
+    #   - "44444:44444/tcp"
+
+    #   - "44443:44443/udp"
+    #   - "44443:44443/tcp"
+      
+    #   # PlainTransport UDP range
+    #  - "40000-40999:40000-40999/udp"
+
+    volumes:
+      # server TLS certs (컨테이너 내부에서 읽을 위치로 마운트)
+      - ./mediasoup-demo/server/certs:/work/mediasoup-demo/server/certs:ro
+
+    restart: unless-stopped
+
+  mediasoup-app:
+    # image: anyeon07/mediasoup-app-edge:v1
+    image: ghcr.io/ahnyeohn/mediasoup-app-edge:v1
+    build:
+      context: . #./mediasoup-demo/app
+      dockerfile: mediasoup-demo/app/Dockerfile
+    container_name: mediasoup-app
+    depends_on:
+      - mediasoup-server
+    ports:
+      - "5555:5555/tcp"
+    volumes:
+      # app이 http-server로 TLS 서빙할 때 cert/key를 ../server/certs 로 참조하므로
+      # 컨테이너 내부에서 /work/server/certs 로 보이게 마운트
+      - ./mediasoup-demo/server/certs:/work/mediasoup-demo/server/certs:ro
+    restart: unless-stopped

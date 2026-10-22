@@ -5,7 +5,7 @@ package sysinfo;
 service SysInfoService {
   rpc StreamSystemInfo(Empty) returns (stream SystemInfoResponse);
 
-  // mediasoup -> metrics agent
+  // 추가: mediasoup -> metrics agent
   rpc UpdateViewerCount(ViewerCountRequest) returns (Empty);
 }
 

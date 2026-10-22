@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="UTF-8" />
+
+	<meta
+		name="viewport"
+		content="width=device-width, initial-scale=1.0"
+	/>
+
+	<link rel="icon" href="data:," />
+
+	<title>mediasoup load test</title>
+
+	<style>
+		html,
+		body
+		{
+			margin: 0;
+			padding: 0;
+			width: 2px;
+			height: 2px;
+			overflow: hidden;
+		}
+
+		#media-sink
+		{
+			width: 1px;
+			height: 1px;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="media-sink"></div>
+
+	<script
+		type="module"
+		src="/src/loadtest.js">
+	</script>
+</body>
+</html>

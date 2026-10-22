@@ -16,6 +16,9 @@ import * as os from 'node:os';
 
 const ANNOUNCED_IP = process.env['MEDIASOUP_ANNOUNCED_ADDRESS'] ?? process.env['SERVER_IP'];
 const SIGNALING_DOMAIN = process.env['SIGNALING_DOMAIN'] ?? ANNOUNCED_IP;
+const POD_IP = process.env['MEDIASOUP_ANNOUNCED_ADDRESS'] ?? process.env['POD_IP'];
+const PUBLIC_IP = process.env['MEDIASOUP_ANNOUNCED_ADDRESS'] ?? process.env['PUBLIC_IP'];
+const RTC_PORT = Number(process.env['RTC_PORT'] ?? 44444);
 
 export const config = {
 	/**
@@ -23,7 +26,8 @@ export const config = {
 	 * not matching this domain will be rejected.
 	 */
 	// yeon
-	domain: SIGNALING_DOMAIN,
+	//domain: SIGNALING_DOMAIN,
+	domain: PUBLIC_IP, //ANNOUNCED_IP,
 	/**
 	 * Signaling settings (Protoo WebSocket server and HTTP API server).
 	 */
@@ -44,8 +48,8 @@ export const config = {
 	 */
 	mediasoup: {
 		// Number of mediasoup workers to launch.
-		numWorkers: Number(process.env['MEDIASOUP_NUM_WORKERS']) || Object.keys(os.cpus()).length,
-		//numWorkers: 1,
+		//numWorkers: Number(process.env['MEDIASOUP_NUM_WORKERS']) || Object.keys(os.cpus()).length,
+		numWorkers: 1,
 		/**
 		 * mediasoup WorkerSettings.
 		 *
@@ -143,7 +147,8 @@ export const config = {
 					protocol: 'udp',
 					ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
 					announcedAddress: ANNOUNCED_IP,
-					port: 44444,
+					//port: 44444,
+					port: RTC_PORT,
 					sendBufferSize: undefined,
 					recvBufferSize: undefined,
 				},
@@ -151,7 +156,8 @@ export const config = {
 					protocol: 'tcp',
 					ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
 					announcedAddress: ANNOUNCED_IP,
-					port: 44444,
+					//port: 44444,
+					port: RTC_PORT,
 					sendBufferSize: undefined,
 					recvBufferSize: undefined,
 				},
@@ -184,7 +190,8 @@ export const config = {
 			listenInfo: {
 				protocol: 'udp',
 				ip: process.env['MEDIASOUP_LISTEN_IP'] ?? '0.0.0.0',
-				announcedAddress: ANNOUNCED_IP,
+				//announcedAddress: ANNOUNCED_IP,
+				announcedAddress: POD_IP,
 				portRange: {
 					min: Number(process.env['MEDIASOUP_MIN_PORT'] ?? 40000),
 					max: Number(process.env['MEDIASOUP_MAX_PORT'] ?? 40999),

@@ -1,0 +1,12 @@
+[submodule "lb/lb/haproxy"]
+	path = lb/lb/haproxy
+	url = https://github.com/Ahnyeohn/haproxy
+[submodule "lb/haproxy"]
+	path = lb/haproxy
+	url = https://github.com/Ahnyeohn/haproxy
+[submodule "network/mediasoup-demo"]
+	path = network/mediasoup-demo
+	url = https://github.com/Ahnyeohn/mediasoup-demo.git
+[submodule "network/mediasoup"]
+	path = network/mediasoup
+	url = https://github.com/Ahnyeohn/mediasoup.git

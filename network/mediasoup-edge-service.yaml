@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediasoup-edge-pipe
+  namespace: qos
+spec:
+  clusterIP: None
+  selector:
+    app: mediasoup-edge
+  ports:
+  - name: pipeapi
+    port: 4445
+    targetPort: 4445
